@@ -1,0 +1,253 @@
+/* src/index.css */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Custom base styles */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 min-h-screen;
+    font-feature-settings: 'cv01', 'cv02', 'cv03', 'cv04';
+  }
+  
+  /* Dark mode styles */
+  .dark {
+    color-scheme: dark;
+  }
+  
+  .dark body {
+    @apply bg-gray-900 text-gray-100;
+  }
+  
+  /* Focus styles */
+  .focus-visible {
+    @apply ring-2 ring-primary-500 ring-offset-2 outline-none;
+  }
+  
+  .dark .focus-visible {
+    @apply ring-offset-gray-900;
+  }
+  
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', system-ui, sans-serif;
+    @apply font-semibold;
+  }
+  
+  /* Links */
+  a {
+    @apply transition-colors duration-200;
+  }
+  
+  /* Buttons base styles */
+  button {
+    @apply transition-all duration-200 ease-in-out;
+  }
+  
+  /* Form elements */
+  input, textarea, select {
+    @apply transition-colors duration-200;
+  }
+  
+  /* Scrollbar styles */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100;
+  }
+  
+  .dark ::-webkit-scrollbar-track {
+    @apply bg-gray-800;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+  
+  .dark ::-webkit-scrollbar-thumb {
+    @apply bg-gray-600;
+  }
+  
+  .dark ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
+  }
+  
+  /* Selection styles */
+  ::selection {
+    @apply bg-primary-100 text-primary-900;
+  }
+  
+  .dark ::selection {
+    @apply bg-primary-900 text-primary-100;
+  }
+  
+  /* Screen reader only utility */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  
+  .focus\:not-sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+}
+
+/* Custom component styles */
+@layer components {
+  /* Button variants */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-2 bg-primary-600 hover:bg-primary-700 focus:bg-primary-700 active:bg-primary-800 text-white font-medium rounded-lg transition-colors duration-200 focus-visible;
+  }
+  
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-4 py-2 bg-gray-200 hover:bg-gray-300 focus:bg-gray-300 active:bg-gray-400 text-gray-900 font-medium rounded-lg transition-colors duration-200 focus-visible;
+  }
+  
+  .dark .btn-secondary {
+    @apply bg-gray-700 hover:bg-gray-600 focus:bg-gray-600 active:bg-gray-500 text-gray-100;
+  }
+  
+  .btn-outline {
+    @apply inline-flex items-center justify-center px-4 py-2 border-2 border-primary-600 hover:bg-primary-50 focus:bg-primary-50 active:bg-primary-100 text-primary-600 font-medium rounded-lg transition-colors duration-200 focus-visible;
+  }
+  
+  .dark .btn-outline {
+    @apply border-primary-400 hover:bg-primary-900 focus:bg-primary-900 active:bg-primary-800 text-primary-400;
+  }
+  
+  .btn-danger {
+    @apply inline-flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 focus:bg-red-700 active:bg-red-800 text-white font-medium rounded-lg transition-colors duration-200 focus-visible;
+  }
+  
+  .btn-success {
+    @apply inline-flex items-center justify-center px-4 py-2 bg-green-600 hover:bg-green-700 focus:bg-green-700 active:bg-green-800 text-white font-medium rounded-lg transition-colors duration-200 focus-visible;
+  }
+  
+  /* Input styles */
+  .input-primary {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200;
+  }
+  
+  .dark .input-primary {
+    @apply bg-gray-800 border-gray-600 text-gray-100 focus:border-primary-400;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-xl shadow-card border border-gray-200 p-6;
+  }
+  
+  .dark .card {
+    @apply bg-gray-800 border-gray-700;
+  }
+  
+  .card-hover {
+    @apply hover:shadow-card-hover hover:border-gray-300 transition-all duration-300;
+  }
+  
+  .dark .card-hover:hover {
+    @apply border-gray-600;
+  }
+  
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-white/80 backdrop-blur-glass border border-white/20 shadow-glass;
+  }
+  
+  .dark .glass {
+    @apply bg-gray-900/80 border-gray-700/20;
+  }
+  
+  /* Status badges */
+  .status-pending {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800;
+  }
+  
+  .status-verified {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800;
+  }
+  
+  .status-resolved {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800;
+  }
+  
+  .status-rejected {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800;
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideInUp 0.3s ease-out;
+  }
+  
+  /* Offline indicator */
+  .offline .online-only {
+    display: none !important;
+  }
+  
+  .online .offline-only {
+    display: none !important;
+  }
+  
+  /* Print utilities */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    
+    .print-block {
+      display: block !important;
+    }
+  }
+  
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .motion-reduce-friendly {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+  
+  /* High contrast mode */
+  @media (prefers-contrast: high) {
+    .contrast-friendly {
+      border-width: 2px !important;
+      font-weight: 600 !important;
+    }
+  }
+}
