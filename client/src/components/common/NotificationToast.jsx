@@ -1,6 +1,6 @@
 // src/components/common/NotificationToast.jsx
 import React, { useEffect } from 'react';
-import { useSocket } from '../../hooks/useSocket';
+import { useSocket } from '../../context/SocketContext';
 import toast from 'react-hot-toast';
 
 const NotificationToast = () => {

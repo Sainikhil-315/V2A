@@ -22,6 +22,8 @@ const IssueTracking = React.lazy(() => import('./pages/IssueTracking'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 const Login = React.lazy(() => import('./components/auth/Login'));
 const Register = React.lazy(() => import('./components/auth/Register'));
+const ContributionBoard = React.lazy(() => import('./components/leaderboard/ContributorBoard'));
+const IssueForm = React.lazy(() => import('./components/user/IssueForm'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -34,7 +36,7 @@ function App() {
   return (
     <AuthProvider>
       <SocketProvider>
-        <Router>
+        <Router future={{ v7_startTransition: true }}>
           <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
             {/* Toast Notifications */}
             <Toaster
@@ -85,7 +87,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/issues/*"
+                    path="/issues"
                     element={
                       <ProtectedRoute>
                         <IssueTracking />
@@ -97,6 +99,22 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <Profile />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/leaderboard"
+                    element={
+                      <ProtectedRoute>
+                        <ContributionBoard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/report"
+                    element={
+                      <ProtectedRoute>
+                        <IssueForm />
                       </ProtectedRoute>
                     }
                   />

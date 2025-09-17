@@ -211,7 +211,7 @@ router.put('/profile', protect, async (req, res) => {
       });
     }
 
-    const allowedUpdates = ['name', 'phone', 'address', 'preferences'];
+    const allowedUpdates = ['name', 'phone', 'address', 'preferences', 'email'];
     const updates = {};
 
     // Filter allowed updates
@@ -236,6 +236,8 @@ router.put('/profile', protect, async (req, res) => {
           name: user.name,
           email: user.email,
           phone: user.phone,
+          // bio: user.bio,
+          // location: user.location,
           role: user.role,
           avatar: user.avatar,
           address: user.address,

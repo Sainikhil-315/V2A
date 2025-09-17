@@ -178,4 +178,20 @@ export const ProgressLoader = ({ progress = 0, className = '' }) => {
   );
 };
 
+// Chart skeleton loader
+export const ChartSkeleton = ({ bars = 5, className = '' }) => {
+  return (
+    <div className={`space-y-2 ${className}`}>
+      {[...Array(bars)].map((_, i) => (
+        <div
+          key={i}
+          className="bg-gray-200 dark:bg-gray-700 rounded h-4 animate-pulse"
+          style={{ width: `${Math.random() * 60 + 40}%` }} // Random width between 40%–100%
+        />
+      ))}
+    </div>
+  );
+};
+
+
 export default Loader;

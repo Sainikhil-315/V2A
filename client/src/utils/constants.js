@@ -195,13 +195,13 @@ export const SOCIAL_LINKS = {
   twitter: 'https://twitter.com/voice2action',
   instagram: 'https://instagram.com/voice2action',
   linkedin: 'https://linkedin.com/company/voice2action',
-  github: 'https://github.com/voice2action'
+  github: 'https://github.com/Sainikhil-315/V2A'
 };
 
 // Contact Information
 export const CONTACT_INFO = {
-  email: 'support@voice2action.com',
-  phone: '+91-9876543210',
+  email: 'pushparamagani7@gmail.com',
+  phone: '+91-1234567890',
   address: 'Bhimavaram, Andhra Pradesh, India',
   hours: 'Mon-Fri 9:00 AM - 6:00 PM IST'
 };

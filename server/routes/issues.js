@@ -353,23 +353,23 @@ router.post('/', protect, handleMultipleUpload, async (req, res) => {
       await notificationService.notifyNewIssue(issue, authorities);
     }
 
-    // Emit real-time notification
+    // Emit real-time notification for new issue
     const io = req.app.get('io');
     if (io) {
-      io.to(`issue_${issue._id}`).emit('comment_added', {
+      io.emit('new_issue_submitted', {
         issueId: issue._id,
-        comment: newComment,
-        user: {
-          name: req.user.name,
-          avatar: req.user.avatar
-        }
+        title: issue.title,
+        category: issue.category,
+        priority: issue.priority,
+        reporter: issue.reporter.name,
+        location: issue.location
       });
     }
 
     res.status(201).json({
       success: true,
-      message: 'Comment added successfully',
-      data: { comment: newComment }
+      message: 'Issue reported successfully',
+      data: { issue }
     });
 
   } catch (error) {

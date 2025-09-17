@@ -1,8 +1,8 @@
 // src/components/auth/Register.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import { ButtonLoader } from '../common/Loader';
 
@@ -34,10 +34,14 @@ const Register = () => {
     setFocus('name');
   }, [setFocus]);
 
-  // Clear errors when component unmounts
+  // Clear errors when component unmounts - FIXED: Remove clearError from dependencies
   useEffect(() => {
-    return () => clearError();
-  }, [clearError]);
+    return () => {
+      if (clearError) {
+        clearError();
+      }
+    };
+  }, []); // Empty dependency array - only run on mount/unmount
 
   const onSubmit = async (data) => {
     const { confirmPassword, ...userData } = data;

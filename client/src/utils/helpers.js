@@ -1,5 +1,5 @@
 // src/utils/helpers.js
-import { format, formatDistance, formatDistanceToNow, isValid, parseISO } from 'date-fns';
+import { format, formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { ISSUE_CATEGORIES, ISSUE_STATUS, ISSUE_PRIORITY, FILE_UPLOAD } from './constants';
 
 // Format date utilities

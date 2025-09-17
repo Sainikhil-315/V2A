@@ -1,669 +1,475 @@
-"// IssueForm component" 
 // src/components/user/IssueForm.jsx
-import React, { useState, useCallback } from 'react';
-import { useForm } from 'react-hook-form';
-import { useDropzone } from 'react-dropzone';
-import { motion, AnimatePresence } from 'framer-motion';
-import { issuesAPI } from '../../utils/api';
-import { useOfflineQueue } from '../../hooks/useOfflineQueue';
-import { ISSUE_CATEGORIES, ISSUE_PRIORITY, FILE_UPLOAD } from '../../utils/constants';
-import { formatFileSize } from '../../utils/helpers';
-import VoiceRecorder from './VoiceRecorder';
-import LocationPicker from './LocationPicker';
-import { ButtonLoader } from '../common/Loader';
-import toast from 'react-hot-toast';
+import React, { useState, useCallback } from 'react'
+import { useForm } from 'react-hook-form'
+import { useNavigate } from 'react-router-dom'
+import { useDropzone } from 'react-dropzone'
+import { 
+  Upload, 
+  X, 
+  MapPin, 
+  Camera, 
+  Mic, 
+  MicOff,
+  Image as ImageIcon,
+  Video,
+  FileAudio
+} from 'lucide-react'
+import { issuesAPI } from '../../utils/api'
+import { ISSUE_CATEGORIES, ISSUE_PRIORITY } from '../../utils/constants'
+import LoadingButton from '../common/LoadingButton'
+import LocationPicker from './LocationPicker'
+import VoiceRecorder from './VoiceRecorder'
+import toast from 'react-hot-toast'
 
-const IssueForm = ({ onSuccess, onCancel }) => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [files, setFiles] = useState([]);
-  const [location, setLocation] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const { queueCreateIssue, isOnline } = useOfflineQueue();
+const IssueForm = () => {
+  const navigate = useNavigate()
+  const [isLoading, setIsLoading] = useState(false)
+  const [files, setFiles] = useState([])
+  const [location, setLocation] = useState(null)
+  const [showLocationPicker, setShowLocationPicker] = useState(false)
+  const [voiceRecording, setVoiceRecording] = useState(null)
+  const [isRecording, setIsRecording] = useState(false)
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    watch,
+    reset,
     setValue,
-    trigger,
-    reset
+    watch
   } = useForm({
     defaultValues: {
       priority: 'medium',
-      visibility: 'public'
+      category: ''
     }
-  });
+  })
 
-  const selectedCategory = watch('category');
-  const selectedPriority = watch('priority');
+  const watchedCategory = watch('category')
 
-  // File upload handling
+  // File upload handler
   const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
-    // Handle rejected files
     if (rejectedFiles.length > 0) {
-      rejectedFiles.forEach(({ file, errors }) => {
-        errors.forEach(error => {
-          if (error.code === 'file-too-large') {
-            toast.error(`${file.name} is too large. Maximum size is ${formatFileSize(FILE_UPLOAD.maxSize)}`);
-          } else if (error.code === 'file-invalid-type') {
-            toast.error(`${file.name} is not a supported file type`);
-          }
-        });
-      });
+      toast.error('Some files were rejected. Please check file size and format.')
+      return
     }
 
-    // Add accepted files
-    acceptedFiles.forEach(file => {
-      if (files.length < FILE_UPLOAD.maxFiles) {
-        const fileWithPreview = Object.assign(file, {
-          preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
-          id: Date.now() + Math.random()
-        });
-        setFiles(prev => [...prev, fileWithPreview]);
-      } else {
-        toast.error(`Maximum ${FILE_UPLOAD.maxFiles} files allowed`);
-      }
-    });
-  }, [files.length]);
+    if (files.length + acceptedFiles.length > 5) {
+      toast.error('Maximum 5 files allowed')
+      return
+    }
+
+    const newFiles = acceptedFiles.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      type: file.type.split('/')[0]
+    }))
+
+    setFiles(prev => [...prev, ...newFiles])
+  }, [files.length])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': FILE_UPLOAD.acceptedTypes.images,
-      'video/*': FILE_UPLOAD.acceptedTypes.videos,
-      'audio/*': FILE_UPLOAD.acceptedTypes.audio
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp'],
+      'video/*': ['.mp4', '.webm', '.mov'],
+      'audio/*': ['.mp3', '.wav', '.ogg', '.m4a']
     },
-    maxSize: FILE_UPLOAD.maxSize,
-    maxFiles: FILE_UPLOAD.maxFiles
-  });
+    maxSize: 10 * 1024 * 1024, // 10MB
+    maxFiles: 5
+  })
 
-  const removeFile = (fileId) => {
+  // Remove file
+  const removeFile = (index) => {
     setFiles(prev => {
-      const updated = prev.filter(file => file.id !== fileId);
-      // Revoke object URL to prevent memory leaks
-      const fileToRemove = prev.find(file => file.id === fileId);
-      if (fileToRemove?.preview) {
-        URL.revokeObjectURL(fileToRemove.preview);
+      const newFiles = [...prev]
+      URL.revokeObjectURL(newFiles[index].preview)
+      newFiles.splice(index, 1)
+      return newFiles
+    })
+  }
+
+  // Get current location
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by this browser')
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          address: 'Current Location',
+          coordinates: {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          }
+        })
+        toast.success('Location detected!')
+      },
+      (error) => {
+        toast.error('Unable to get your location. Please select manually.')
+        setShowLocationPicker(true)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000
       }
-      return updated;
-    });
-  };
+    )
+  }
 
-  const handleVoiceRecording = (audioBlob) => {
-    const audioFile = new File([audioBlob], `voice-recording-${Date.now()}.webm`, {
-      type: 'audio/webm'
-    });
-    audioFile.id = Date.now() + Math.random();
-    setFiles(prev => [...prev, audioFile]);
-    toast.success('Voice recording added successfully!');
-  };
+  // Handle voice recording
+  const handleVoiceRecording = (audioBlob, duration) => {
+    setVoiceRecording({
+      blob: audioBlob,
+      duration,
+      url: URL.createObjectURL(audioBlob)
+    })
+    setIsRecording(false)
+    toast.success(`Voice note recorded (${Math.round(duration)}s)`)
+  }
 
-  const handleLocationSelect = (selectedLocation) => {
-    setLocation(selectedLocation);
-    setValue('location', selectedLocation);
-  };
-
-  const validateStep = async (step) => {
-    switch (step) {
-      case 1:
-        return await trigger(['title', 'description', 'category']);
-      case 2:
-        return location !== null;
-      case 3:
-        return true; // Files are optional
-      default:
-        return true;
-    }
-  };
-
-  const nextStep = async () => {
-    const isValid = await validateStep(currentStep);
-    if (isValid && currentStep < 4) {
-      setCurrentStep(prev => prev + 1);
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
-    }
-  };
-
+  // Submit form
   const onSubmit = async (data) => {
     if (!location) {
-      toast.error('Please select a location for the issue');
-      setCurrentStep(2);
-      return;
+      toast.error('Please select a location for the issue')
+      return
     }
 
-    setIsSubmitting(true);
-    setUploadProgress(0);
+    setIsLoading(true)
 
     try {
-      const formData = new FormData();
+      const formData = new FormData()
       
-      // Add text fields
-      formData.append('title', data.title);
-      formData.append('description', data.description);
-      formData.append('category', data.category);
-      formData.append('priority', data.priority);
-      formData.append('visibility', data.visibility);
-      formData.append('location', JSON.stringify(location));
+      // Add form fields
+      Object.keys(data).forEach(key => {
+        formData.append(key, data[key])
+      })
 
-      // Add tags if any
-      if (data.tags) {
-        const tagsArray = data.tags.split(',').map(tag => tag.trim()).filter(Boolean);
-        formData.append('tags', JSON.stringify(tagsArray));
-      }
+      // Add location
+      formData.append('location', JSON.stringify(location))
 
       // Add files
-      files.forEach((file, index) => {
-        formData.append('media', file);
-        setUploadProgress(((index + 1) / files.length) * 50); // First 50% for file preparation
-      });
+      files.forEach((fileObj, index) => {
+        formData.append('media', fileObj.file)
+      })
 
-      let result;
-      if (isOnline) {
-        // Submit directly if online
-        result = await issuesAPI.create(formData);
-        toast.success('Issue reported successfully!');
-      } else {
-        // Queue for offline submission
-        const issueData = {
-          title: data.title,
-          description: data.description,
-          category: data.category,
-          priority: data.priority,
-          visibility: data.visibility,
-          location: location,
-          tags: data.tags ? data.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [],
-          files: files // Will be handled by offline queue
-        };
-        
-        queueCreateIssue(issueData);
-        toast.success('Issue queued for submission when online!');
+      // Add voice recording
+      if (voiceRecording) {
+        formData.append('voice', voiceRecording.blob, `voice-${Date.now()}.wav`)
       }
 
-      // Reset form
-      reset();
-      setFiles([]);
-      setLocation(null);
-      setCurrentStep(1);
+      const response = await issuesAPI.create(formData)
       
-      if (onSuccess) {
-        onSuccess(result?.data || { queued: true });
-      }
-
+      toast.success('Issue reported successfully!')
+      navigate(`/issues/${response.data.issue.id}`)
     } catch (error) {
-      console.error('Issue submission error:', error);
-      toast.error('Failed to submit issue. Please try again.');
+      console.error('Error creating issue:', error)
+      toast.error('Failed to report issue. Please try again.')
     } finally {
-      setIsSubmitting(false);
-      setUploadProgress(0);
+      setIsLoading(false)
     }
-  };
+  }
 
-  const getCategoryIcon = (categoryValue) => {
-    const category = ISSUE_CATEGORIES.find(cat => cat.value === categoryValue);
-    return category?.icon || '📋';
-  };
-
-  const getPriorityColor = (priorityValue) => {
-    const priority = ISSUE_PRIORITY.find(p => p.value === priorityValue);
-    return priority?.color || 'gray';
-  };
+  // Get file type icon
+  const getFileIcon = (type) => {
+    switch (type) {
+      case 'image': return <ImageIcon className="w-4 h-4" />
+      case 'video': return <Video className="w-4 h-4" />
+      case 'audio': return <FileAudio className="w-4 h-4" />
+      default: return <Upload className="w-4 h-4" />
+    }
+  }
 
   return (
-    <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Report an Issue</h2>
-          <span className="text-sm text-gray-500 dark:text-gray-400">Step {currentStep} of 4</span>
-        </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-          <motion.div
-            className="bg-primary-600 h-2 rounded-full"
-            initial={{ width: '25%' }}
-            animate={{ width: `${(currentStep / 4) * 100}%` }}
-            transition={{ duration: 0.3 }}
-          />
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h1 className="text-2xl font-bold text-gray-900">Report an Issue</h1>
+            <p className="text-gray-600 mt-1">
+              Help improve your community by reporting civic issues
+            </p>
+          </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <AnimatePresence mode="wait">
-          {/* Step 1: Basic Information */}
-          {currentStep === 1 && (
-            <motion.div
-              key="step1"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              className="space-y-6"
-            >
-              <div className="text-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Issue Details</h3>
-                <p className="text-gray-600 dark:text-gray-400">Tell us about the issue you'd like to report</p>
-              </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+            {/* Title */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Issue Title *
+              </label>
+              <input
+                {...register('title', {
+                  required: 'Title is required',
+                  minLength: { value: 5, message: 'Title must be at least 5 characters' },
+                  maxLength: { value: 100, message: 'Title must be less than 100 characters' }
+                })}
+                type="text"
+                className="form-input w-full text-black"
+                placeholder="Brief description of the issue"
+              />
+              {errors.title && (
+                <p className="text-red-600 text-sm mt-1">{errors.title.message}</p>
+              )}
+            </div>
 
-              {/* Title */}
+            {/* Category and Priority */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Issue Title *
-                </label>
-                <input
-                  {...register('title', {
-                    required: 'Title is required',
-                    minLength: { value: 5, message: 'Title must be at least 5 characters' },
-                    maxLength: { value: 100, message: 'Title cannot exceed 100 characters' }
-                  })}
-                  type="text"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="Brief description of the issue"
-                />
-                {errors.title && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.title.message}</p>
-                )}
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description *
-                </label>
-                <textarea
-                  {...register('description', {
-                    required: 'Description is required',
-                    minLength: { value: 10, message: 'Description must be at least 10 characters' },
-                    maxLength: { value: 1000, message: 'Description cannot exceed 1000 characters' }
-                  })}
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="Provide detailed information about the issue..."
-                />
-                {errors.description && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.description.message}</p>
-                )}
-              </div>
-
-              {/* Category */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Category *
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {ISSUE_CATEGORIES.map((category) => (
-                    <label
-                      key={category.value}
-                      className={`relative flex items-center p-3 border rounded-lg cursor-pointer transition-all ${
-                        selectedCategory === category.value
-                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                          : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                      }`}
-                    >
-                      <input
-                        {...register('category', { required: 'Please select a category' })}
-                        type="radio"
-                        value={category.value}
-                        className="sr-only"
-                      />
-                      <span className="text-lg mr-2">{category.icon}</span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {category.label}
-                      </span>
-                    </label>
+                <select
+                  {...register('category', { required: 'Category is required' })}
+                  className="form-select w-full text-black"
+                >
+                  <option value="">Select a category</option>
+                  {ISSUE_CATEGORIES.map(cat => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.icon} {cat.label}
+                    </option>
                   ))}
-                </div>
+                </select>
                 {errors.category && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.category.message}</p>
+                  <p className="text-red-600 text-sm mt-1">{errors.category.message}</p>
                 )}
               </div>
 
-              {/* Priority */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Priority
                 </label>
-                <div className="grid grid-cols-4 gap-3">
-                  {ISSUE_PRIORITY.map((priority) => (
-                    <label
-                      key={priority.value}
-                      className={`relative flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-all ${
-                        selectedPriority === priority.value
-                          ? `border-${priority.color}-500 bg-${priority.color}-50 dark:bg-${priority.color}-900/20`
-                          : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                      }`}
-                    >
-                      <input
-                        {...register('priority')}
-                        type="radio"
-                        value={priority.value}
-                        className="sr-only"
-                      />
-                      <div className={`w-3 h-3 rounded-full bg-${priority.color}-500 mb-1`} />
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {priority.label}
-                      </span>
-                    </label>
+                <select
+                  {...register('priority')}
+                  className="form-select w-full text-black"
+                >
+                  {ISSUE_PRIORITY.map(priority => (
+                    <option key={priority.value} value={priority.value}>
+                      {priority.label}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
-            </motion.div>
-          )}
+            </div>
 
-          {/* Step 2: Location */}
-          {currentStep === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              className="space-y-6"
-            >
-              <div className="text-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Location</h3>
-                <p className="text-gray-600 dark:text-gray-400">Where is this issue located?</p>
-              </div>
-
-              <LocationPicker
-                onLocationSelect={handleLocationSelect}
-                selectedLocation={location}
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description *
+              </label>
+              <textarea
+                {...register('description', {
+                  required: 'Description is required',
+                  minLength: { value: 10, message: 'Description must be at least 10 characters' }
+                })}
+                rows={4}
+                className="form-textarea w-full text-black"
+                placeholder="Provide detailed information about the issue"
               />
-            </motion.div>
-          )}
+              {errors.description && (
+                <p className="text-red-600 text-sm mt-1">{errors.description.message}</p>
+              )}
+            </div>
 
-          {/* Step 3: Media Upload */}
-          {currentStep === 3 && (
-            <motion.div
-              key="step3"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              className="space-y-6"
-            >
-              <div className="text-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Media & Evidence</h3>
-                <p className="text-gray-600 dark:text-gray-400">Add photos, videos, or voice recordings (optional)</p>
+            {/* Location */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Location *
+              </label>
+              <div className="space-y-3">
+                {location ? (
+                  <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-md">
+                    <div className="flex items-center">
+                      <MapPin className="w-5 h-5 text-green-600 mr-2" />
+                      <span className="text-green-800">{location.address}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLocation(null)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex space-x-3">
+                    <button
+                      type="button"
+                      onClick={getCurrentLocation}
+                      className="btn btn-outline flex items-center"
+                    >
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Use Current Location
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowLocationPicker(true)}
+                      className="btn btn-outline flex items-center"
+                    >
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Select on Map
+                    </button>
+                  </div>
+                )}
               </div>
+            </div>
 
-              {/* File Upload Area */}
+            {/* Voice Recording */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Voice Note (Optional)
+              </label>
+              <div className="space-y-3">
+                {voiceRecording ? (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center">
+                      <FileAudio className="w-5 h-5 text-blue-600 mr-2" />
+                      <span className="text-blue-800">
+                        Voice note ({Math.round(voiceRecording.duration)}s)
+                      </span>
+                      <audio controls className="ml-3">
+                        <source src={voiceRecording.url} type="audio/wav" />
+                      </audio>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        URL.revokeObjectURL(voiceRecording.url)
+                        setVoiceRecording(null)
+                      }}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <VoiceRecorder
+                    onRecordingComplete={handleVoiceRecording}
+                    isRecording={isRecording}
+                    onRecordingStart={() => setIsRecording(true)}
+                    onRecordingStop={() => setIsRecording(false)}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* File Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Photos/Videos (Optional)
+              </label>
+              
+              {/* Dropzone */}
               <div
                 {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
                   isDragActive
-                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                    ? 'border-primary-400 bg-primary-50'
+                    : 'border-gray-300 hover:border-primary-400'
                 }`}
               >
                 <input {...getInputProps()} />
-                <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                {isDragActive ? (
-                  <p className="text-primary-600 dark:text-primary-400">Drop the files here...</p>
-                ) : (
-                  <div>
-                    <p className="text-gray-600 dark:text-gray-400 mb-1">
-                      Drag & drop files here, or click to select
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500">
-                      Images, videos, audio up to {formatFileSize(FILE_UPLOAD.maxSize)} each
-                    </p>
-                  </div>
-                )}
+                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">
+                  {isDragActive
+                    ? 'Drop files here...'
+                    : 'Drag & drop files here, or click to select'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Max 5 files, 10MB each (Images, Videos, Audio)
+                </p>
               </div>
 
-              {/* Voice Recorder */}
-              <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Record Voice Note</h4>
-                <VoiceRecorder onRecordingComplete={handleVoiceRecording} />
-              </div>
-
-              {/* Uploaded Files */}
+              {/* File Preview */}
               {files.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100">Uploaded Files</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {files.map((file) => (
-                      <div
-                        key={file.id}
-                        className="relative flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg"
-                      >
-                        {file.preview && (
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {files.map((fileObj, index) => (
+                    <div key={index} className="relative">
+                      <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                        {fileObj.type === 'image' ? (
                           <img
-                            src={file.preview}
+                            src={fileObj.preview}
                             alt="Preview"
-                            className="w-12 h-12 object-cover rounded mr-3"
+                            className="w-full h-full object-cover"
                           />
+                        ) : (
+                          <div className="flex flex-col items-center">
+                            {getFileIcon(fileObj.type)}
+                            <span className="text-xs mt-1 text-gray-600 text-center">
+                              {fileObj.file.name}
+                            </span>
+                          </div>
                         )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {formatFileSize(file.size)}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeFile(file.id)}
-                          className="ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
                       </div>
-                    ))}
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
-            </motion.div>
-          )}
+            </div>
 
-          {/* Step 4: Review & Submit */}
-          {currentStep === 4 && (
-            <motion.div
-              key="step4"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              className="space-y-6"
-            >
-              <div className="text-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Review & Submit</h3>
-                <p className="text-gray-600 dark:text-gray-400">Please review your issue report before submitting</p>
-              </div>
+            {/* Anonymous option */}
+            <div className="flex items-center">
+              <input
+                {...register('anonymous')}
+                type="checkbox"
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-900">
+                Report anonymously (your name won't be shown publicly)
+              </label>
+            </div>
 
-              {/* Review Summary */}
-              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6 space-y-4">
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100">Title</h4>
-                  <p className="text-gray-600 dark:text-gray-400">{watch('title')}</p>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100">Description</h4>
-                  <p className="text-gray-600 dark:text-gray-400">{watch('description')}</p>
-                </div>
-
-                <div className="flex items-center space-x-4">
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Category</h4>
-                    <div className="flex items-center">
-                      <span className="mr-2">{getCategoryIcon(watch('category'))}</span>
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {ISSUE_CATEGORIES.find(cat => cat.value === watch('category'))?.label}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Priority</h4>
-                    <div className="flex items-center">
-                      <div className={`w-3 h-3 rounded-full bg-${getPriorityColor(watch('priority'))}-500 mr-2`} />
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {ISSUE_PRIORITY.find(p => p.value === watch('priority'))?.label}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {location && (
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Location</h4>
-                    <p className="text-gray-600 dark:text-gray-400">{location.address}</p>
-                  </div>
-                )}
-
-                {files.length > 0 && (
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Attachments</h4>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      {files.length} file{files.length !== 1 ? 's' : ''} attached
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Additional Options */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Tags (Optional)
-                  </label>
-                  <input
-                    {...register('tags')}
-                    type="text"
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Separate tags with commas (e.g. urgent, downtown, pothole)"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Visibility
-                  </label>
-                  <div className="flex space-x-4">
-                    <label className="flex items-center">
-                      <input
-                        {...register('visibility')}
-                        type="radio"
-                        value="public"
-                        className="text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Public</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        {...register('visibility')}
-                        type="radio"
-                        value="private"
-                        className="text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Private</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Upload Progress */}
-              {isSubmitting && uploadProgress > 0 && (
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Navigation Buttons */}
-        <div className="flex justify-between pt-6">
-          <div>
-            {currentStep > 1 && (
+            {/* Submit Button */}
+            <div className="flex justify-end space-x-3 pt-6 border-t">
               <button
                 type="button"
-                onClick={prevStep}
-                disabled={isSubmitting}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Previous
-              </button>
-            )}
-          </div>
-
-          <div className="flex space-x-3">
-            {onCancel && (
-              <button
-                type="button"
-                onClick={onCancel}
-                disabled={isSubmitting}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onClick={() => navigate('/dashboard')}
+                className="btn btn-outline"
               >
                 Cancel
               </button>
-            )}
-
-            {currentStep < 4 ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="inline-flex items-center px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                Next
-                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            ) : (
-              <button
+              <LoadingButton
+                loading={isLoading}
                 type="submit"
-                disabled={isSubmitting}
-                className="inline-flex items-center px-6 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                className="btn btn-primary"
               >
-                {isSubmitting ? (
-                  <>
-                    <ButtonLoader className="mr-2" />
-                    {isOnline ? 'Submitting...' : 'Queuing...'}
-                  </>
-                ) : (
-                  <>
-                    Submit Issue
-                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+                Report Issue
+              </LoadingButton>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
 
-      {/* Offline Indicator */}
-      {!isOnline && (
-        <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-          <div className="flex items-center">
-            <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <span className="text-sm text-yellow-700 dark:text-yellow-300">
-              You're offline. Your issue will be submitted when you're back online.
-            </span>
-          </div>
-        </div>
+      {/* Location Picker Modal */}
+      {showLocationPicker && (
+        <LocationPicker
+          onLocationSelect={(loc) => {
+            // Ensure loc is always { address, coordinates: { lat, lng } }
+            let formattedLoc = loc;
+            if (loc && (typeof loc.lat === 'number' && typeof loc.lng === 'number')) {
+              formattedLoc = {
+                address: loc.address || 'Selected Location',
+                coordinates: {
+                  lat: loc.lat,
+                  lng: loc.lng
+                }
+              };
+            }
+            setLocation(formattedLoc)
+            setShowLocationPicker(false)
+          }}
+          onClose={() => setShowLocationPicker(false)}
+        />
       )}
     </div>
-  );
-};
+  )
+}
 
-export default IssueForm;
+export default IssueForm

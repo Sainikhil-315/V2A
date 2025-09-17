@@ -35,6 +35,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  location: {
+    type: String,
+    maxlength: 100
+  },
+  bio: {
+    type: String,
+    maxlength: 500
+  },
   address: {
     street: String,
     city: String,

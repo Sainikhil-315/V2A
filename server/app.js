@@ -61,35 +61,35 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
-  message: {
-    success: false,
-    message: 'Too many requests from this IP, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  // Skip rate limiting for certain routes if needed
-  skip: (req) => {
-    // Skip rate limiting for socket.io connections
-    return req.path.startsWith('/socket.io');
-  }
-});
+// // Rate limiting
+// const limiter = rateLimit({
+//   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+//   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+//   message: {
+//     success: false,
+//     message: 'Too many requests from this IP, please try again later.'
+//   },
+//   standardHeaders: true,
+//   legacyHeaders: false,
+//   // Skip rate limiting for certain routes if needed
+//   skip: (req) => {
+//     // Skip rate limiting for socket.io connections
+//     return req.path.startsWith('/socket.io');
+//   }
+// });
 
-app.use(limiter);
+// app.use(limiter);
 
 // Stricter rate limiting for auth routes
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs for auth routes
-  message: {
-    success: false,
-    message: 'Too many authentication attempts, please try again later.'
-  },
-  skipSuccessfulRequests: true
-});
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 5, // limit each IP to 5 requests per windowMs for auth routes
+//   message: {
+//     success: false,
+//     message: 'Too many authentication attempts, please try again later.'
+//   },
+//   skipSuccessfulRequests: true
+// });
 
 // Body parsing middleware
 app.use(express.json({ 
@@ -134,7 +134,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // API routes
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/auth', authRoutes); // write authLimiter middleware for handling ratelimitter
 app.use('/api/issues', issueRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/authorities', authorityRoutes);
