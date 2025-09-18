@@ -48,9 +48,40 @@ const AdminDashboard = () => {
           adminAPI.getAnalytics({ period: "30d" }),
         ]);
 
-      setDashboardData(dashboardResponse.data);
-      setRecentIssues(pendingResponse.data.issues);
-      setAnalytics(analyticsResponse.data);
+      // Map backend dashboard data to flat structure
+      const d = dashboardResponse.data?.data || {};
+      const dashboardFlat = {
+        totalIssues: d.issues?.total || 0,
+        pendingIssues: d.issues?.pending || 0,
+        verifiedIssues: d.issues?.verified || 0,
+        rejectedIssues: d.issues?.rejected || 0,
+        inProgressIssues: d.issues?.inProgress || 0,
+        resolvedIssues: d.issues?.resolved || 0,
+        newIssuesThisWeek: d.issues?.thisWeek || 0,
+        activeUsers: d.users?.total || 0,
+        newUsersThisWeek: d.users?.newThisWeek || 0,
+        onlineUsers: d.users?.active || 0,
+      };
+
+      setDashboardData(dashboardFlat);
+      setRecentIssues(pendingResponse.data?.data?.issues || []);
+
+      // Map analytics as in AnalyticsDashboard.jsx, but only keep 5 statuses
+      const a = analyticsResponse.data?.data || {};
+      const issuesOverTime = (a.trends || []).map(item => {
+        const date = item._id?.day !== undefined
+          ? `${item._id?.year}-${String(item._id?.month).padStart(2, '0')}-${String(item._id?.day).padStart(2, '0')}`
+          : '';
+        return {
+          date,
+          pending: item.pending || 0,
+          verified: item.verified || 0,
+          rejected: item.rejected || 0,
+          in_progress: item.in_progress || 0,
+          resolved: item.resolved || 0
+        };
+      });
+      setAnalytics({ issuesOverTime });
     } catch (error) {
       console.error("Error loading admin dashboard:", error);
     } finally {
@@ -77,50 +108,64 @@ const AdminDashboard = () => {
     }
   };
 
+  // Only show quick stats for the 5 statuses
   const quickStats = dashboardData
     ? [
         {
-          title: "Total Issues",
-          value: dashboardData.totalIssues,
-          icon: AlertCircle,
-          color: "blue",
-          change: `+${dashboardData.newIssuesThisWeek} this week`,
-        },
-        {
-          title: "Pending Review",
+          title: "Pending",
           value: dashboardData.pendingIssues,
           icon: Clock,
           color: "yellow",
-          change:
-            dashboardData.pendingIssues > 10
-              ? "Needs attention"
-              : "Under control",
+          change: dashboardData.pendingIssues > 10 ? "Needs attention" : "Under control",
         },
         {
-          title: "Resolved Issues",
+          title: "Verified",
+          value: dashboardData.verifiedIssues,
+          icon: TrendingUp,
+          color: "indigo",
+          change: "Verified by admin",
+        },
+        {
+          title: "Rejected",
+          value: dashboardData.rejectedIssues,
+          icon: AlertCircle,
+          color: "red",
+          change: "Rejected by admin",
+        },
+        {
+          title: "In Progress",
+          value: dashboardData.inProgressIssues,
+          icon: BarChart3,
+          color: "blue",
+          change: "By authority",
+        },
+        {
+          title: "Resolved",
           value: dashboardData.resolvedIssues,
           icon: CheckCircle,
           color: "green",
-          change: `${Math.round(
-            (dashboardData.resolvedIssues / dashboardData.totalIssues) * 100
-          )}% resolution rate`,
-        },
-        {
-          title: "Active Users",
-          value: dashboardData.activeUsers,
-          icon: Users,
-          color: "purple",
-          change: `+${dashboardData.newUsersThisWeek} new this week`,
+          change: "By authority",
         },
       ]
     : [];
 
+  // Only show the 5 required statuses
   const pieChartData = dashboardData
     ? [
         {
           name: "Pending",
           value: dashboardData.pendingIssues,
           color: "#f59e0b",
+        },
+        {
+          name: "Verified",
+          value: dashboardData.verifiedIssues,
+          color: "#6366f1",
+        },
+        {
+          name: "Rejected",
+          value: dashboardData.rejectedIssues,
+          color: "#ef4444",
         },
         {
           name: "In Progress",
@@ -131,11 +176,6 @@ const AdminDashboard = () => {
           name: "Resolved",
           value: dashboardData.resolvedIssues,
           color: "#10b981",
-        },
-        {
-          name: "Rejected",
-          value: dashboardData.rejectedIssues,
-          color: "#ef4444",
         },
       ]
     : [];
@@ -189,9 +229,7 @@ const AdminDashboard = () => {
                 <Download className="w-4 h-4 mr-2" />
                 Export Data
               </button>
-              href="/admin/verification" className="btn btn-primary flex
-              items-center"
-              <a>
+              <a href="/admin/verification" className="btn btn-primary flex items-center">
                 <Eye className="w-4 h-4 mr-2" />
                 Review Issues
               </a>
@@ -203,7 +241,7 @@ const AdminDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {quickStats.map((stat, index) => (
+          {quickStats?.map((stat, index) => (
             <div
               key={index}
               className="bg-white p-6 rounded-lg shadow-sm border"
@@ -296,7 +334,7 @@ const AdminDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {recentIssues.map((issue) => (
+                    {recentIssues?.map((issue) => (
                       <tr key={issue.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <div>
@@ -358,7 +396,7 @@ const AdminDashboard = () => {
                         paddingAngle={5}
                         dataKey="value"
                       >
-                        {pieChartData.map((entry, index) => (
+                        {pieChartData?.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -368,7 +406,7 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="mt-4 space-y-2">
-                  {pieChartData.map((item, index) => (
+                  {pieChartData?.map((item, index) => (
                     <div
                       key={index}
                       className="flex items-center justify-between"
@@ -398,9 +436,9 @@ const AdminDashboard = () => {
               </div>
 
               <div className="p-6 space-y-3">
-                href="/admin/verification" className="w-full btn btn-primary
+                <a href="/admin/verification" className="w-full btn btn-primary
                 flex items-center justify-center"
-                <a>
+                >
                   <Eye className="w-4 h-4 mr-2" />
                   Review Issues
                 </a>

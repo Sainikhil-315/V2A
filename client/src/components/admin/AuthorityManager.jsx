@@ -15,7 +15,7 @@ import {
 import { authoritiesAPI } from '../../utils/api'
 import { formatRelativeTime } from '../../utils/helpers'
 import { ISSUE_CATEGORIES } from '../../utils/constants'
-import LoadingButton from '../common/Loader'
+import LoadingButton from '../common/LoadingButton'
 import { SkeletonLoader } from '../common/Loader'
 import toast from 'react-hot-toast'
 
@@ -38,8 +38,8 @@ const AuthorityManager = () => {
       if (searchQuery) params.search = searchQuery
       if (filterDepartment) params.department = filterDepartment
       
-      const response = await authoritiesAPI.getAll(params)
-      setAuthorities(response.data.authorities)
+  const response = await authoritiesAPI.getAll(params)
+  setAuthorities(response.data.data.authorities)
     } catch (error) {
       console.error('Error loading authorities:', error)
       toast.error('Failed to load authorities')
@@ -73,9 +73,9 @@ const AuthorityManager = () => {
     }
   }
 
-  const departments = [...new Set(ISSUE_CATEGORIES.map(cat => cat.label))]
+  const departments = [...new Set(ISSUE_CATEGORIES?.map(cat => cat.label))]
 
-  if (loading && authorities.length === 0) {
+  if (loading && authorities?.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-7xl mx-auto">
@@ -125,7 +125,7 @@ const AuthorityManager = () => {
                   placeholder="Search authorities..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 form-input w-full"
+                  className="pl-10 form-input w-full text-black "
                 />
               </div>
             </div>
@@ -133,10 +133,10 @@ const AuthorityManager = () => {
             <select
               value={filterDepartment}
               onChange={(e) => setFilterDepartment(e.target.value)}
-              className="form-select w-auto"
+              className="form-select w-auto text-black"
             >
               <option value="">All Departments</option>
-              {departments.map(dept => (
+              {departments?.map(dept => (
                 <option key={dept} value={dept}>
                   {dept}
                 </option>
@@ -174,8 +174,9 @@ const AuthorityManager = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {authorities.map((authority) => (
-                  <tr key={authority.id} className="hover:bg-gray-50">
+                {console.log(authorities)}
+                {authorities?.map((authority) => (
+                  <tr key={authority._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
@@ -202,11 +203,11 @@ const AuthorityManager = () => {
                       <div className="space-y-1">
                         <div className="flex items-center">
                           <Mail className="w-3 h-3 mr-1" />
-                          {authority.email}
+                          {authority.contact.email}
                         </div>
                         <div className="flex items-center">
                           <Phone className="w-3 h-3 mr-1" />
-                          {authority.phone}
+                          {authority.contact.phone}
                         </div>
                       </div>
                     </td>
@@ -218,11 +219,11 @@ const AuthorityManager = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        authority.active 
+                        authority.status 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {authority.active ? 'Active' : 'Inactive'}
+                        {authority.status ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -234,7 +235,7 @@ const AuthorityManager = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteAuthority(authority.id)}
+                          onClick={() => handleDeleteAuthority(authority._id)}
                           className="text-red-600 hover:text-red-900"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -247,7 +248,7 @@ const AuthorityManager = () => {
             </table>
           </div>
           
-          {authorities.length === 0 && (
+          {authorities?.length === 0 && (
             <div className="text-center py-12">
               <Building className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No authorities found</h3>
@@ -280,11 +281,9 @@ const AuthorityManager = () => {
           }}
           onSave={(savedAuthority) => {
             if (editingAuthority) {
-              setAuthorities(prev => 
-                prev.map(auth => auth.id === savedAuthority.id ? savedAuthority : auth)
-              )
+              setAuthorities(prev => Array.isArray(prev) ? prev.map(auth => auth.id === savedAuthority._id ? savedAuthority : auth) : [savedAuthority])
             } else {
-              setAuthorities(prev => [...prev, savedAuthority])
+              setAuthorities(prev => Array.isArray(prev) ? [...prev, savedAuthority] : [savedAuthority])
             }
             setShowModal(false)
             setEditingAuthority(null)
@@ -319,22 +318,48 @@ const AuthorityFormModal = ({ authority, onClose, onSave }) => {
     if (!formData.department) newErrors.department = 'Department is required'
     if (!formData.email.trim()) newErrors.email = 'Email is required'
     if (!formData.phone.trim()) newErrors.phone = 'Phone is required'
-    if (formData.categories.length === 0) newErrors.categories = 'At least one category is required'
-    
+    if (formData.categories?.length === 0) newErrors.categories = 'At least one category is required'
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
+    }
+
+    // Build payload for backend (add default boundaries for serviceArea)
+    const defaultPolygon = [
+      [
+        [77.5946, 12.9716], // Point 1 (lng, lat)
+        [77.5950, 12.9716], // Point 2
+        [77.5950, 12.9720], // Point 3
+        [77.5946, 12.9720], // Point 4
+        [77.5946, 12.9716]  // Closing the polygon
+      ]
+    ];
+    const payload = {
+      name: formData.name,
+      department: formData.department,
+      contact: {
+        email: formData.email,
+        phone: formData.phone,
+        officeAddress: formData.address || 'N/A'
+      },
+      serviceArea: {
+        description: formData.description || 'N/A',
+        boundaries: {
+          type: 'Polygon',
+          coordinates: defaultPolygon
+        }
+      },
+      active: formData.active
     }
 
     setLoading(true)
     try {
       let response
       if (authority) {
-        response = await authoritiesAPI.update(authority.id, formData)
+        response = await authoritiesAPI.update(authority._id, payload)
       } else {
-        response = await authoritiesAPI.create(formData)
+        response = await authoritiesAPI.create(payload)
       }
-      
       toast.success(`Authority ${authority ? 'updated' : 'created'} successfully`)
       onSave(response.data.authority)
     } catch (error) {
@@ -380,7 +405,7 @@ const AuthorityFormModal = ({ authority, onClose, onSave }) => {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    className={`form-input w-full ${errors.name ? 'border-red-300' : ''}`}
+                    className={`form-input w-full text-black  ${errors.name ? 'border-red-300' : ''}`}
                     placeholder="e.g., Municipal Corporation"
                   />
                   {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
@@ -393,11 +418,11 @@ const AuthorityFormModal = ({ authority, onClose, onSave }) => {
                   <select
                     value={formData.department}
                     onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
-                    className={`form-select w-full ${errors.department ? 'border-red-300' : ''}`}
+                    className={`form-select w-full text-black ${errors.department ? 'border-red-300' : ''}`}
                   >
                     <option value="">Select Department</option>
-                    {ISSUE_CATEGORIES.map(cat => (
-                      <option key={cat.value} value={cat.label}>
+                    {ISSUE_CATEGORIES?.map(cat => (
+                      <option key={cat.value} value={cat.value}>
                         {cat.label}
                       </option>
                     ))}
@@ -414,7 +439,7 @@ const AuthorityFormModal = ({ authority, onClose, onSave }) => {
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
-                  className="form-textarea w-full"
+                  className="form-textarea w-full text-black "
                   placeholder="Brief description of the authority's responsibilities"
                 />
               </div>
@@ -429,7 +454,7 @@ const AuthorityFormModal = ({ authority, onClose, onSave }) => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    className={`form-input w-full ${errors.email ? 'border-red-300' : ''}`}
+                    className={`form-input w-full text-black  ${errors.email ? 'border-red-300' : ''}`}
                     placeholder="contact@authority.gov"
                   />
                   {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email}</p>}
@@ -443,7 +468,7 @@ const AuthorityFormModal = ({ authority, onClose, onSave }) => {
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    className={`form-input w-full ${errors.phone ? 'border-red-300' : ''}`}
+                    className={`form-input w-full text-black  ${errors.phone ? 'border-red-300' : ''}`}
                     placeholder="+91-9876543210"
                   />
                   {errors.phone && <p className="text-red-600 text-sm mt-1">{errors.phone}</p>}
@@ -458,7 +483,7 @@ const AuthorityFormModal = ({ authority, onClose, onSave }) => {
                   type="text"
                   value={formData.address}
                   onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                  className="form-input w-full"
+                  className="form-input w-full text-black "
                   placeholder="Office address"
                 />
               </div>
@@ -469,7 +494,7 @@ const AuthorityFormModal = ({ authority, onClose, onSave }) => {
                   Handles Issue Categories *
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {ISSUE_CATEGORIES.map(category => (
+                  {ISSUE_CATEGORIES?.map(category => (
                     <label key={category.value} className="flex items-center">
                       <input
                         type="checkbox"

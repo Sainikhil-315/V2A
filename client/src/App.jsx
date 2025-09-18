@@ -24,6 +24,9 @@ const Login = React.lazy(() => import('./components/auth/Login'));
 const Register = React.lazy(() => import('./components/auth/Register'));
 const ContributionBoard = React.lazy(() => import('./components/leaderboard/ContributorBoard'));
 const IssueForm = React.lazy(() => import('./components/user/IssueForm'));
+const IssueVerification = React.lazy(() => import('./components/admin/IssueVerification'));
+const IssueAnalytics = React.lazy(() => import('./components/admin/AnalyticsDashboard'));
+const AuthorityManager = React.lazy(() => import('./components/admin/AuthorityManager'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -119,6 +122,32 @@ function App() {
                     }
                   />
                   
+                  {/* Admin-only Routes */}
+                  <Route
+                    path="/admin/verification"
+                    element={
+                      <ProtectedRoute requireAdmin={true}>
+                        <IssueVerification />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/analytics"
+                    element={
+                      <ProtectedRoute requireAdmin={true}>
+                        <IssueAnalytics />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/authorities"
+                    element={
+                      <ProtectedRoute requireAdmin={true}>
+                        <AuthorityManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
                   {/* 404 Route */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

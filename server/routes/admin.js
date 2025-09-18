@@ -104,21 +104,24 @@ router.get('/dashboard', async (req, res) => {
     ]);
 
     // Response time analytics (average time to resolve)
-    const responseTimeStats = await Issue.aggregate([
-      {
-        $match: {
-          status: 'resolved',
-          actualResolutionTime: { $exists: true }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          averageResolutionTime: { $avg: '$actualResolutionTime' },
-          medianResolutionTime: { $median: { input: '$actualResolutionTime' } }
-        }
+    const resolvedTimes = await Issue.find({
+      status: 'resolved',
+      actualResolutionTime: { $exists: true }
+    }).select('actualResolutionTime -_id');
+
+    const times = resolvedTimes.map(doc => doc.actualResolutionTime).filter(x => typeof x === 'number');
+    let averageResolutionTime = 0;
+    let medianResolutionTime = 0;
+    if (times.length > 0) {
+      averageResolutionTime = times.reduce((a, b) => a + b, 0) / times.length;
+      const sorted = [...times].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      if (sorted.length % 2 === 0) {
+        medianResolutionTime = (sorted[mid - 1] + sorted[mid]) / 2;
+      } else {
+        medianResolutionTime = sorted[mid];
       }
-    ]);
+    }
 
     res.json({
       success: true,
@@ -152,8 +155,8 @@ router.get('/dashboard', async (req, res) => {
         priorityBreakdown: priorityStats,
         recentActivity: recentIssues,
         responseTime: {
-          average: responseTimeStats[0]?.averageResolutionTime || 0,
-          median: responseTimeStats[0]?.medianResolutionTime || 0
+          average: averageResolutionTime,
+          median: medianResolutionTime
         }
       }
     });
@@ -235,7 +238,6 @@ router.put('/issues/:id/status', async (req, res) => {
     }
 
     const issue = await Issue.findById(req.params.id).populate('reporter');
-    
     if (!issue) {
       return res.status(404).json({
         success: false,
@@ -246,18 +248,18 @@ router.put('/issues/:id/status', async (req, res) => {
     const oldStatus = issue.status;
     const { status, adminNotes, rejectionReason, assignedTo, estimatedResolutionTime } = value;
 
-    // Update issue
+    // Update issue fields
     issue.status = status;
-    issue.adminNotes = adminNotes;
-    
+    issue.adminNotes = adminNotes || '';
+
     if (status === 'rejected') {
       issue.rejectionReason = rejectionReason;
     }
-    
+
     if (status === 'assigned' && assignedTo) {
       issue.assignedTo = assignedTo;
     }
-    
+
     if (estimatedResolutionTime) {
       issue.estimatedResolutionTime = estimatedResolutionTime;
     }
@@ -274,22 +276,29 @@ router.put('/issues/:id/status', async (req, res) => {
 
     // Update user stats if issue is resolved
     if (status === 'resolved' && oldStatus !== 'resolved') {
-      await User.findByIdAndUpdate(issue.reporter._id, {
-        $inc: { 'stats.issuesResolved': 1 }
-      });
+      const resolvedTimes = await Issue.find({
+        status: 'resolved',
+        actualResolutionTime: { $exists: true }
+      }).select('actualResolutionTime -_id');
 
-      // Create contribution record for resolution
-      await Contribution.create({
-        user: issue.reporter._id,
-        type: 'issue_resolved',
-        issue: issue._id,
-        points: 5, // 5 points for issue resolution
-        month: new Date().getMonth() + 1,
-        year: new Date().getFullYear(),
-        category: issue.category,
-        metadata: {
-          resolutionTime: issue.actualResolutionTime,
-          priority: issue.priority
+      const times = resolvedTimes.map(doc => doc.actualResolutionTime).filter(x => typeof x === 'number');
+
+      let averageResolutionTime = 0;
+      let medianResolutionTime = 0;
+
+      if (times.length > 0) {
+        averageResolutionTime = times.reduce((a, b) => a + b, 0) / times.length;
+        const sorted = [...times].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        medianResolutionTime = sorted.length % 2 === 0
+          ? (sorted[mid - 1] + sorted[mid]) / 2
+          : sorted[mid];
+      }
+
+      await User.findByIdAndUpdate(issue.reporter._id, {
+        $set: {
+          averageResolutionTime,
+          medianResolutionTime
         }
       });
     }
@@ -298,26 +307,26 @@ router.put('/issues/:id/status', async (req, res) => {
     const notificationService = req.app.get('notificationService');
     if (notificationService) {
       await notificationService.notifyIssueStatusChange(
-        issue, 
-        oldStatus, 
-        status, 
-        req.user, 
+        issue,
+        oldStatus,
+        status,
+        req.user,
         adminNotes || rejectionReason
       );
-    }
 
-    // If assigning to authority, notify them
-    if (status === 'assigned' && assignedTo) {
-      const authority = await Authority.findById(assignedTo);
-      if (authority && notificationService) {
-        await notificationService.notifyNewIssue(issue, [authority]);
+      // If assigning to authority, notify them
+      if (status === 'assigned' && assignedTo) {
+        const authority = await User.findById(assignedTo);
+        if (authority) {
+          await notificationService.notifyNewIssue(issue, [authority]);
+        }
       }
     }
 
     res.json({
       success: true,
       message: `Issue ${status} successfully`,
-      data: { 
+      data: {
         issue: {
           id: issue._id,
           status: issue.status,
@@ -337,7 +346,7 @@ router.put('/issues/:id/status', async (req, res) => {
       error: error.message
     });
   }
-});
+})
 
 // @desc    Bulk operations on issues
 // @route   POST /api/admin/issues/bulk
@@ -505,6 +514,9 @@ router.get('/analytics', async (req, res) => {
           total: { $sum: 1 },
           resolved: { $sum: { $cond: [{ $eq: ['$status', 'resolved'] }, 1, 0] } },
           pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+          verified: { $sum: { $cond: [{ $eq: ['$status', 'verified'] }, 1, 0] } },
+          rejected: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } },
+          in_progress: { $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] } },
           avgResolutionTime: { $avg: '$actualResolutionTime' }
         }
       },
@@ -512,6 +524,69 @@ router.get('/analytics', async (req, res) => {
         $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1, '_id.hour': 1 }
       }
     ]);
+
+    // User engagement: daily active users (reported at least one issue) and new users
+    // Get all dates in range
+    const dateLabels = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - (days - 1 - i));
+      dateLabels.push(d.toISOString().slice(0, 10));
+    }
+
+    // Aggregate new users per day
+    const newUsersAgg = await User.aggregate([
+      { $match: { createdAt: { $gte: startDate } } },
+      { $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' },
+            day: { $dayOfMonth: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Aggregate active users per day (users who reported at least one issue)
+    const activeUsersAgg = await Issue.aggregate([
+      { $match: { createdAt: { $gte: startDate } } },
+      { $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' },
+            day: { $dayOfMonth: '$createdAt' },
+            user: '$reporter'
+          }
+        }
+      },
+      { $group: {
+          _id: {
+            year: '$_id.year',
+            month: '$_id.month',
+            day: '$_id.day'
+          },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Map to date string for frontend
+    const newUsersMap = {};
+    newUsersAgg.forEach(u => {
+      const date = `${u._id.year}-${String(u._id.month).padStart(2, '0')}-${String(u._id.day).padStart(2, '0')}`;
+      newUsersMap[date] = u.count;
+    });
+    const activeUsersMap = {};
+    activeUsersAgg.forEach(a => {
+      const date = `${a._id.year}-${String(a._id.month).padStart(2, '0')}-${String(a._id.day).padStart(2, '0')}`;
+      activeUsersMap[date] = a.count;
+    });
+    const userEngagement = dateLabels.map(date => ({
+      date,
+      activeUsers: activeUsersMap[date] || 0,
+      newUsers: newUsersMap[date] || 0
+    }));
 
     // Category performance
     const categoryPerformance = await Issue.aggregate([
@@ -604,7 +679,8 @@ router.get('/analytics', async (req, res) => {
         trends: issueTrends,
         categoryPerformance,
         userMetrics: userMetrics[0] || {},
-        geographicDistribution: geographicData
+        geographicDistribution: geographicData,
+        userEngagement
       }
     });
 

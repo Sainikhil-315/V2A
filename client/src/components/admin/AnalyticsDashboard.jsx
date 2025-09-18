@@ -32,15 +32,94 @@ const AnalyticsDashboard = () => {
   const [analytics, setAnalytics] = useState(null)
   const [timeRange, setTimeRange] = useState('30d')
 
+  // Reload analytics data whenever timeRange changes
   useEffect(() => {
     loadAnalytics()
+    // All charts and content will update because they use the analytics state
   }, [timeRange])
 
+  // Loads analytics data for the selected timeRange and updates all charts/content
   const loadAnalytics = async () => {
     setLoading(true)
     try {
-      const response = await adminAPI.getAnalytics({ period: timeRange })
-      setAnalytics(response.data)
+      // Parse number of days from timeRange (e.g., '30d' -> 30)
+      const days = parseInt(timeRange);
+      const response = await adminAPI.getAnalytics({ timeframe: days })
+      const data = response.data?.data || {}
+
+      // Issues over time (trends) - only keep 5 statuses
+      const issuesOverTime = (data.trends || []).map(item => {
+        const date = item._id?.day !== undefined
+          ? `${item._id?.year}-${String(item._id?.month).padStart(2, '0')}-${String(item._id?.day).padStart(2, '0')}`
+          : '';
+        return {
+          date,
+          pending: item.pending || 0,
+          verified: item.verified || 0,
+          rejected: item.rejected || 0,
+          in_progress: item.in_progress || 0,
+          resolved: item.resolved || 0
+        };
+      });
+
+      // Category distribution (pie chart)
+      const categoryDistribution = (data.categoryPerformance || []).map(item => ({
+        name: item.category || item._id || 'Unknown',
+        value: item.total || 0
+      }))
+
+      // Response time by category (bar chart)
+      const responseTimeByCategory = (data.categoryPerformance || []).map(item => ({
+        category: item.category || item._id || 'Unknown',
+        avgResponseTime: Math.round(item.avgResolutionTime || 0)
+      }))
+
+      // User engagement (line chart)
+      const userEngagement = (data.userEngagement || []).map(item => ({
+        date: item.date,
+        activeUsers: item.activeUsers || 0,
+        newUsers: item.newUsers || 0
+      }))
+
+      // Top reporters (table)
+      const topReporters = (data.userMetrics?.topContributors || [])
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 10)
+        .map(u => ({
+          name: u.name,
+          role: u.role || 'user',
+          issueCount: u.issueCount || u.issues || 0,
+          points: u.score || 0
+        }))
+
+      // Authority performance (table)
+      const authorityPerformance = []
+
+      // Key metrics
+      const totalIssues = issuesOverTime.reduce((sum, d) => sum + d.issues, 0)
+      const resolvedIssues = issuesOverTime.reduce((sum, d) => sum + d.resolved, 0)
+      const avgResponseTime = Math.round(
+        (data.categoryPerformance || []).reduce((sum, c) => sum + (c.avgResolutionTime || 0), 0) /
+        ((data.categoryPerformance || []).length || 1)
+      )
+      // Fallbacks for growth/satisfaction
+      const analytics = {
+        totalIssues,
+        resolvedIssues,
+        avgResponseTime,
+        issueGrowth: 0,
+        resolutionGrowth: 0,
+        responseTimeImprovement: 0,
+        satisfactionScore: 0,
+        satisfactionGrowth: 0,
+        issuesOverTime,
+        categoryDistribution,
+        responseTimeByCategory,
+        userEngagement,
+        topReporters,
+        authorityPerformance
+      }
+      setAnalytics(analytics)
     } catch (error) {
       console.error('Error loading analytics:', error)
     } finally {
@@ -104,7 +183,7 @@ const AnalyticsDashboard = () => {
               </p>
             </div>
             
-            <div className="mt-4 sm:mt-0 flex items-center space-x-3">
+            <div className="mt-4 sm:mt-0 flex items-center space-x-3 text-black">
               <select
                 value={timeRange}
                 onChange={(e) => setTimeRange(e.target.value)}
@@ -134,8 +213,8 @@ const AnalyticsDashboard = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Issues</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-black">Total Issues</p>
+                <p className="text-2xl font-bold text-black">
                   {formatNumber(analytics?.totalIssues || 0)}
                 </p>
                 <p className="text-sm text-green-600">
@@ -151,8 +230,8 @@ const AnalyticsDashboard = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Resolution Rate</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-black">Resolution Rate</p>
+                <p className="text-2xl font-bold text-black">
                   {Math.round(((analytics?.resolvedIssues || 0) / (analytics?.totalIssues || 1)) * 100)}%
                 </p>
                 <p className="text-sm text-green-600">
@@ -168,8 +247,8 @@ const AnalyticsDashboard = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Avg Response Time</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-black">Avg Response Time</p>
+                <p className="text-2xl font-bold text-black">
                   {analytics?.avgResponseTime || 0}h
                 </p>
                 <p className="text-sm text-green-600">
@@ -185,8 +264,8 @@ const AnalyticsDashboard = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">User Satisfaction</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-black">User Satisfaction</p>
+                <p className="text-2xl font-bold text-black">
                   {analytics?.satisfactionScore || 0}%
                 </p>
                 <p className="text-sm text-green-600">
@@ -205,7 +284,7 @@ const AnalyticsDashboard = () => {
           {/* Issues Over Time */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Issues Over Time</h2>
+              <h2 className="text-lg font-medium text-black">Issues Over Time</h2>
             </div>
             
             <div className="p-6">
@@ -237,7 +316,7 @@ const AnalyticsDashboard = () => {
           {/* Category Distribution */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Issues by Category</h2>
+              <h2 className="text-lg font-medium text-black">Issues by Category</h2>
             </div>
             
             <div className="p-6">
@@ -268,7 +347,7 @@ const AnalyticsDashboard = () => {
           {/* Response Time by Category */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Response Time by Category</h2>
+              <h2 className="text-lg font-medium text-black">Response Time by Category</h2>
             </div>
             
             <div className="p-6">
@@ -289,7 +368,7 @@ const AnalyticsDashboard = () => {
           {/* User Engagement */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">User Engagement</h2>
+              <h2 className="text-lg font-medium text-black">User Engagement</h2>
             </div>
             
             <div className="p-6">
@@ -326,20 +405,20 @@ const AnalyticsDashboard = () => {
           {/* Top Reporters */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Top Contributors</h2>
+              <h2 className="text-lg font-medium text-black">Top Contributors</h2>
             </div>
             
             <div className="overflow-hidden">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">
                       User
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">
                       Issues
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">
                       Points
                     </th>
                   </tr>
@@ -347,13 +426,13 @@ const AnalyticsDashboard = () => {
                 <tbody className="divide-y divide-gray-200">
                   {(analytics?.topReporters || []).map((reporter, index) => (
                     <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-black">
                         {reporter.name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         {reporter.issueCount}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         {reporter.points}
                       </td>
                     </tr>
@@ -366,20 +445,20 @@ const AnalyticsDashboard = () => {
           {/* Authority Performance */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Authority Performance</h2>
+              <h2 className="text-lg font-medium text-black">Authority Performance</h2>
             </div>
             
             <div className="overflow-hidden">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">
                       Authority
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">
                       Resolved
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">
                       Avg Time
                     </th>
                   </tr>
@@ -387,13 +466,13 @@ const AnalyticsDashboard = () => {
                 <tbody className="divide-y divide-gray-200">
                   {(analytics?.authorityPerformance || []).map((authority, index) => (
                     <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-black">
                         {authority.name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         {authority.resolved}/{authority.assigned}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                         {authority.avgResponseTime}h
                       </td>
                     </tr>

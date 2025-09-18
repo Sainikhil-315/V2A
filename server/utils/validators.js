@@ -97,85 +97,109 @@ const validateComment = (data) => {
 // Authority creation validation
 const validateAuthorityCreation = (data) => {
   const schema = Joi.object({
-    name: Joi.string()
-      .min(3)
-      .max(100)
-      .required()
-      .messages({
-        'string.min': 'Authority name must be at least 3 characters long',
-        'string.max': 'Authority name cannot exceed 100 characters',
-        'any.required': 'Authority name is required'
-      }),
-    department: Joi.string()
-      .valid(
-        'road_maintenance',
-        'waste_management',
-        'water_supply',
-        'electricity',
-        'fire_safety',
-        'public_transport',
-        'parks_recreation',
-        'street_lighting',
-        'drainage',
-        'municipal_corporation',
-        'police',
-        'other'
-      )
-      .required()
-      .messages({
-        'any.only': 'Please select a valid department',
-        'any.required': 'Department is required'
-      }),
+    name: Joi.string().min(3).max(100).required().messages({
+      'string.min': 'Authority name must be at least 3 characters long',
+      'string.max': 'Authority name cannot exceed 100 characters',
+      'any.required': 'Authority name is required'
+    }),
+    department: Joi.string().valid(
+      'road_maintenance',
+      'waste_management',
+      'water_supply',
+      'electricity',
+      'fire_safety',
+      'public_transport',
+      'parks_recreation',
+      'street_lighting',
+      'drainage',
+      'municipal_corporation',
+      'police',
+      'other'
+    ).required().messages({
+      'any.only': 'Please select a valid department',
+      'any.required': 'Department is required'
+    }),
     contact: Joi.object({
-      email: Joi.string()
-        .email()
-        .required()
-        .messages({
-          'string.email': 'Please provide a valid email address',
-          'any.required': 'Contact email is required'
-        }),
-      phone: Joi.string()
-        .pattern(/^[\+]?[1-9][\d]{0,15}$/)
-        .required()
-        .messages({
-          'string.pattern.base': 'Please provide a valid phone number',
-          'any.required': 'Contact phone is required'
-        }),
-      alternatePhone: Joi.string()
-        .pattern(/^[\+]?[1-9][\d]{0,15}$/)
-        .optional(),
-      officeAddress: Joi.string()
-        .min(10)
-        .max(200)
-        .required()
-        .messages({
-          'string.min': 'Office address must be at least 10 characters long',
-          'string.max': 'Office address cannot exceed 200 characters',
-          'any.required': 'Office address is required'
-        })
+      email: Joi.string().email().required().messages({
+        'string.email': 'Please provide a valid email address',
+        'any.required': 'Contact email is required'
+      }),
+      phone: Joi.string().pattern(/^[\+]?[1-9][\d]{0,15}$/).required().messages({
+        'string.pattern.base': 'Please provide a valid phone number',
+        'any.required': 'Contact phone is required'
+      }),
+      alternatePhone: Joi.string().pattern(/^[\+]?[1-9][\d]{0,15}$/).optional().messages({
+        'string.pattern.base': 'Alternate phone number must be valid'
+      }),
+      officeAddress: Joi.string().min(4).max(200).required().messages({
+        'string.min': 'Office address must be at least 4 characters long',
+        'string.max': 'Office address cannot exceed 200 characters',
+        'any.required': 'Office address is required'
+      })
     }).required(),
     serviceArea: Joi.object({
-      description: Joi.string()
-        .min(10)
-        .max(300)
-        .required()
-        .messages({
-          'string.min': 'Service area description must be at least 10 characters long',
-          'string.max': 'Service area description cannot exceed 300 characters',
-          'any.required': 'Service area description is required'
-        }),
-      wards: Joi.array()
-        .items(Joi.string().max(50))
-        .optional(),
-      districts: Joi.array()
-        .items(Joi.string().max(50))
-        .optional(),
-      postalCodes: Joi.array()
-        .items(Joi.string().pattern(/^[0-9]{6}$/))
-        .optional()
-    }).required()
+      description: Joi.string().min(10).max(300).required().messages({
+        'string.min': 'Service area description must be at least 10 characters long',
+        'string.max': 'Service area description cannot exceed 300 characters',
+        'any.required': 'Service area description is required'
+      }),
+      boundaries: Joi.object({
+        type: Joi.string().valid('Polygon', 'MultiPolygon').default('Polygon'),
+        coordinates: Joi.array().items(
+          Joi.array().items(
+            Joi.array().items(Joi.number())
+          )
+        ).required().messages({
+          'any.required': 'Service boundaries are required'
+        })
+      }).optional(),
+      wards: Joi.array().items(Joi.string().max(50)).optional(),
+      districts: Joi.array().items(Joi.string().max(50)).optional(),
+      postalCodes: Joi.array().items(Joi.string().pattern(/^[0-9]{6}$/)).optional().messages({
+        'string.pattern.base': 'Postal code must be a 6-digit number'
+      })
+    }).required(),
+    workingHours: Joi.object({
+      monday: Joi.object({ start: Joi.string(), end: Joi.string() }).optional(),
+      tuesday: Joi.object({ start: Joi.string(), end: Joi.string() }).optional(),
+      wednesday: Joi.object({ start: Joi.string(), end: Joi.string() }).optional(),
+      thursday: Joi.object({ start: Joi.string(), end: Joi.string() }).optional(),
+      friday: Joi.object({ start: Joi.string(), end: Joi.string() }).optional(),
+      saturday: Joi.object({ start: Joi.string(), end: Joi.string() }).optional(),
+      sunday: Joi.object({ start: Joi.string(), end: Joi.string() }).optional(),
+    }).optional(),
+    emergencyContact: Joi.object({
+      available247: Joi.boolean().default(false),
+      phone: Joi.string().optional(),
+      email: Joi.string().email().optional()
+    }).optional(),
+    performanceMetrics: Joi.object({
+      totalAssignedIssues: Joi.number().integer().min(0).optional(),
+      resolvedIssues: Joi.number().integer().min(0).optional(),
+      averageResolutionTime: Joi.number().min(0).optional(),
+      rating: Joi.number().min(1).max(5).optional(),
+      responseRate: Joi.number().min(0).max(100).optional()
+    }).optional(),
+    notificationPreferences: Joi.object({
+      emailNotifications: Joi.boolean().optional(),
+      smsNotifications: Joi.boolean().optional(),
+      urgentOnly: Joi.boolean().optional()
+    }).optional(),
+    status: Joi.string().valid('active', 'inactive', 'suspended').optional(),
+    headOfDepartment: Joi.object({
+      name: Joi.string().optional(),
+      designation: Joi.string().optional(),
+      contact: Joi.string().optional()
+    }).optional(),
+    budget: Joi.object({
+      annual: Joi.number().optional(),
+      allocated: Joi.number().optional(),
+      spent: Joi.number().optional()
+    }).optional(),
+    lastUpdated: Joi.date().optional(),
+    createdAt: Joi.date().optional(),
+    active: Joi.boolean().optional() // for frontend compatibility
   });
-
   return schema.validate(data);
 };
 // Profile update validation
@@ -473,11 +497,43 @@ const validateBulkOperation = (data) => {
   return schema.validate(data);
 };
 
+// Issue status update validation
+const validateIssueStatusUpdate = (data) => {
+  const schema = Joi.object({
+    status: Joi.string()
+      .valid('pending', 'verified', 'rejected', 'assigned', 'in_progress', 'resolved', 'closed')
+      .required()
+      .messages({
+        'any.only': 'Invalid status value',
+        'any.required': 'Status is required'
+      }),
+    adminNotes: Joi.string().max(500).optional().allow(''),
+    rejectionReason: Joi.string().max(300).when('status', {
+      is: 'rejected',
+      then: Joi.required(),
+      otherwise: Joi.optional().allow('')
+    }).messages({
+      'any.required': 'Rejection reason is required when status is rejected',
+      'string.max': 'Rejection reason cannot exceed 300 characters'
+    }),
+    assignedTo: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).when('status', {
+      is: 'assigned',
+      then: Joi.required(),
+      otherwise: Joi.optional().allow('')
+    }).messages({
+      'string.pattern.base': 'AssignedTo must be a valid user ID',
+      'any.required': 'AssignedTo is required when status is assigned'
+    }),
+    estimatedResolutionTime: Joi.number().integer().min(1).optional()
+  });
+  return schema.validate(data);
+};
+
 module.exports = {
   validateUserRegistration,
   validateUserLogin,
   validateIssueSubmission,
-  // validateIssueStatusUpdate,
+  validateIssueStatusUpdate,
   validateComment,
   validateAuthorityCreation,
   validateProfileUpdate,

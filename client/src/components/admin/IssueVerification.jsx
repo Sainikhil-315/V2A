@@ -15,7 +15,7 @@ import {
 import { adminAPI } from '../../utils/api'
 import { formatRelativeTime, getCategoryInfo, truncate } from '../../utils/helpers'
 import { ISSUE_CATEGORIES } from '../../utils/constants'
-import LoadingButton from '../common/Loader'
+import LoadingButton from '../common/LoadingButton'
 import { SkeletonLoader } from '../common/Loader'
 import toast from 'react-hot-toast'
 
@@ -50,10 +50,10 @@ const IssueVerification = () => {
       }
       
       const response = await adminAPI.getPendingIssues(params)
-      setIssues(response.data.issues)
+      setIssues(response.data.data.issues)
       setPagination(prev => ({
         ...prev,
-        total: response.data.total
+        total: response.data.data.pagination.total
       }))
     } catch (error) {
       console.error('Error loading pending issues:', error)
@@ -64,23 +64,29 @@ const IssueVerification = () => {
   }
 
   const handleApproveIssue = async (issueId, assignToAuthority = null) => {
+    if (!issueId) {
+      toast.error('Invalid issue ID');
+      return;
+    }
     setActionLoading(true)
     try {
-      await adminAPI.updateIssueStatus(issueId, {
+      const payload = {
         status: 'verified',
-        assignToAuthority,
-        adminNote: 'Issue approved by admin'
-      })
-      
-      toast.success('Issue approved successfully')
-      setIssues(prev => prev.filter(issue => issue.id !== issueId))
-      setShowModal(false)
-      setSelectedIssue(null)
+        adminNotes: 'Issue approved by admin'
+      };
+      if (assignToAuthority && typeof assignToAuthority === 'string' && assignToAuthority.trim() !== '') {
+        payload.assignedTo = assignToAuthority;
+      }
+      await adminAPI.updateIssueStatus(issueId, payload);
+      toast.success('Issue approved successfully');
+  setIssues(prev => prev.filter(issue => issue._id !== issueId));
+      setShowModal(false);
+      setSelectedIssue(null);
     } catch (error) {
-      console.error('Error approving issue:', error)
-      toast.error('Failed to approve issue')
+      console.error('Error approving issue:', error);
+      toast.error('Failed to approve issue');
     } finally {
-      setActionLoading(false)
+      setActionLoading(false);
     }
   }
 
@@ -89,12 +95,12 @@ const IssueVerification = () => {
     try {
       await adminAPI.updateIssueStatus(issueId, {
         status: 'rejected',
-        adminNote: reason,
+        adminNotes: reason,
         rejectionReason: reason
       })
       
       toast.success('Issue rejected')
-      setIssues(prev => prev.filter(issue => issue.id !== issueId))
+  setIssues(prev => prev.filter(issue => issue._id !== issueId))
       setShowModal(false)
       setSelectedIssue(null)
     } catch (error) {
@@ -178,7 +184,7 @@ const IssueVerification = () => {
               className="form-select w-auto"
             >
               <option value="">All Categories</option>
-              {ISSUE_CATEGORIES.map(cat => (
+              {ISSUE_CATEGORIES?.map(cat => (
                 <option key={cat.value} value={cat.value}>
                   {cat.label}
                 </option>
@@ -201,7 +207,7 @@ const IssueVerification = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {issues.length === 0 ? (
+        {issues?.length === 0 ? (
           <div className="text-center py-12">
             <Check className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -215,11 +221,11 @@ const IssueVerification = () => {
           <>
             {/* Issues Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {issues.map(issue => {
+              {issues?.map(issue => {
                 const category = getCategoryInfo(issue.category)
                 
                 return (
-                  <div key={issue.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+                  <div key={issue._id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
                     {/* Issue Header */}
                     <div className="p-6">
                       <div className="flex items-start justify-between mb-4">
@@ -265,9 +271,9 @@ const IssueVerification = () => {
                       </div>
                       
                       {/* Media Preview */}
-                      {issue.media && issue.media.length > 0 && (
+                      {issue?.media && issue.media.length > 0 && (
                         <div className="mt-4 flex space-x-2">
-                          {issue.media.slice(0, 3).map((media, index) => (
+                          {issue?.media.slice(0, 3).map((media, index) => (
                             <img
                               key={index}
                               src={media.thumbnailUrl || media.url}
@@ -298,7 +304,7 @@ const IssueVerification = () => {
                       
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => handleRejectIssue(issue.id, 'Does not meet community guidelines')}
+                          onClick={() => handleRejectIssue(issue._id, 'Does not meet community guidelines')}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Reject Issue"
                         >
@@ -306,7 +312,7 @@ const IssueVerification = () => {
                         </button>
                         
                         <button
-                          onClick={() => handleApproveIssue(issue.id)}
+                          onClick={() => handleApproveIssue(issue._id)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           title="Approve Issue"
                         >
@@ -398,7 +404,7 @@ const IssueDetailView = ({ issue, onApprove, onReject, loading }) => {
       toast.error('Please provide a rejection reason')
       return
     }
-    onReject(issue.id, rejectionReason)
+  onReject(issue._id, rejectionReason)
   }
 
   return (
@@ -457,7 +463,7 @@ const IssueDetailView = ({ issue, onApprove, onReject, loading }) => {
         <div>
           <h3 className="font-medium text-gray-900 mb-3">Attached Media</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {issue.media.map((media, index) => (
+            {issue?.media.map((media, index) => (
               <div key={index} className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
                 {media.type === 'image' ? (
                   <img
@@ -511,7 +517,7 @@ const IssueDetailView = ({ issue, onApprove, onReject, loading }) => {
             
             <LoadingButton
               loading={loading}
-              onClick={() => onApprove(issue.id)}
+              onClick={() => onApprove(issue._id)}
               className="btn btn-primary"
             >
               <Check className="w-4 h-4 mr-2" />
