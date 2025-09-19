@@ -44,7 +44,7 @@ const UserDashboard = () => {
 
       setStats(issuesResponse.data)
       setUserRank(rankResponse.data)
-      setRecentIssues(userIssuesResponse.data.issues)
+      setRecentIssues(userIssuesResponse.data.data.issues)
       
       // Mock activities - in real app, this would come from API
       setActivities([
@@ -214,7 +214,7 @@ const UserDashboard = () => {
                 {recentIssues?.length > 0 ? (
                   <div className="space-y-4">
                     {recentIssues.map(issue => (
-                      <IssueCard key={issue.id} issue={issue} compact />
+                      <IssueCard key={issue._id || issue.id} issue={issue} compact />
                     ))}
                   </div>
                 ) : (

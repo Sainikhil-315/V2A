@@ -10,43 +10,81 @@ import {
   User,
   Star
 } from 'lucide-react'
-import { leaderboardAPI } from '../../utils/api'
+import { leaderboardAPI, issuesAPI, adminAPI } from '../../utils/api'
 import { formatNumber, formatRelativeTime } from '../../utils/helpers'
 import { SkeletonLoader } from '../common/Loader'
 
 const ContributorBoard = () => {
-  const [loading, setLoading] = useState(true)
-  const [leaderboard, setLeaderboard] = useState([])
-  const [timeframe, setTimeframe] = useState('monthly')
-  const [category, setCategory] = useState('all')
-  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [timeframe, setTimeframe] = useState('monthly');
+  const [category, setCategory] = useState('all');
+  const [stats, setStats] = useState({ totalIssues: 0, resolvedIssues: 0, activeContributors: 0 });
 
   useEffect(() => {
-    loadLeaderboard()
-  }, [timeframe, category])
+    loadLeaderboard();
+  }, [timeframe, category]);
 
   const loadLeaderboard = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      let response
-      const params = category !== 'all' ? { category } : {}
-      
+      let response;
+      const params = category !== 'all' ? { category } : {};
       if (timeframe === 'monthly') {
-        response = await leaderboardAPI.getMonthly(params)
+        response = await leaderboardAPI.getMonthly(params);
       } else {
-        response = await leaderboardAPI.getYearly(params)
+        response = await leaderboardAPI.getYearly(params);
       }
-      
-      setLeaderboard(response.data.leaderboard)
-      
-      const statsResponse = await leaderboardAPI.getStats()
-      setStats(statsResponse.data)
+      // Robust mapping for leaderboard
+      const lbData = response.data?.data?.leaderboard || response.data?.leaderboard || [];
+
+      // Fetch join date for each user as the date of their first posted issue
+      const leaderboardWithJoin = await Promise.all(lbData.map(async (user, idx) => {
+        const userId = user.id || user._id || user.userId || (user.userDetails && user.userDetails._id);
+        let joinedAt = null;
+        try {
+          // Fetch issues for this user, sorted by createdAt ascending, get first
+          const userIssuesResp = await issuesAPI.getAll({ reporter: userId, sortBy: 'createdAt', sortOrder: 'asc', limit: 1 });
+          const firstIssue = userIssuesResp.data?.issues?.[0];
+          if (firstIssue && firstIssue.createdAt) {
+            joinedAt = firstIssue.createdAt;
+          } else {
+            // fallback to user.createdAt or user.userDetails.createdAt
+            joinedAt = user.createdAt || user.userDetails?.createdAt || null;
+          }
+        } catch (e) {
+          joinedAt = user.createdAt || user.userDetails?.createdAt || null;
+        }
+        return {
+          id: userId || idx,
+          name: user.name || user.userDetails?.name || 'Unknown',
+          avatar: user.avatar || user.userDetails?.avatar || '',
+          points: user.points ?? user.totalPoints ?? 0,
+          issueCount: user.issueCount ?? user.totalContributions ?? user.issues ?? 0,
+          resolvedCount: user.resolvedCount ?? user.issuesResolved ?? 0,
+          joinedAt,
+          monthlyGrowth: user.monthlyGrowth ?? user.monthlyPoints ?? (timeframe === 'monthly' ? (user.points ?? user.totalPoints ?? 0) : 0),
+          title: user.title || 'Community Member',
+        };
+      }));
+      setLeaderboard(leaderboardWithJoin);
+
+      // Fetch issues count for Community Impact
+      let totalIssues = 0;
+      if (category === 'all') {
+        const allIssuesResp = await issuesAPI.getAll({ limit: 1 });
+        totalIssues = allIssuesResp.data?.pagination?.total || allIssuesResp.data?.total || 0;
+      } else {
+        const catIssuesResp = await issuesAPI.getAll({ category, limit: 1 });
+        totalIssues = catIssuesResp.data?.pagination?.total || catIssuesResp.data?.total || 0;
+      }
+      setStats((prev) => ({ ...prev, totalIssues }));
     } catch (error) {
-      console.error('Error loading leaderboard:', error)
+      console.error('Error loading leaderboard:', error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const getRankIcon = (rank) => {
     switch (rank) {
@@ -113,16 +151,15 @@ const ContributorBoard = () => {
               <select
                 value={timeframe}
                 onChange={(e) => setTimeframe(e.target.value)}
-                className="form-select"
+                className="form-select text-black"
               >
                 <option value="monthly">This Month</option>
                 <option value="yearly">This Year</option>
               </select>
-              
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="form-select"
+                className="form-select text-black"
               >
                 <option value="all">All Categories</option>
                 <option value="road_maintenance">Road Maintenance</option>
@@ -300,7 +337,7 @@ const ContributorBoard = () => {
                             {formatNumber(contributor.points)}
                           </div>
                           <div className="text-xs text-green-600">
-                            +{contributor.monthlyGrowth || 0} this month
+                            +{formatNumber(contributor.monthlyGrowth || 0)} this month
                           </div>
                         </td>
                         
@@ -316,7 +353,7 @@ const ContributorBoard = () => {
                         </td>
                         
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatRelativeTime(contributor.joinedAt)}
+                          {contributor.joinedAt ? formatRelativeTime(contributor.joinedAt) : 'N/A'}
                         </td>
                       </tr>
                     ))}
@@ -337,45 +374,42 @@ const ContributorBoard = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Community Impact Stats */}
+            {console.log("Stats:", stats)};
             {stats && (
               <div className="bg-white rounded-lg shadow-sm border">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h2 className="text-lg font-medium text-gray-900">Community Impact</h2>
                 </div>
-                
                 <div className="p-6 space-y-6">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-primary-600 mb-1">
-                      {formatNumber(stats.totalIssues)}
+                      {formatNumber(stats.totalIssues || 0)}
                     </div>
                     <div className="text-sm text-gray-600">Total Issues Reported</div>
                   </div>
-                  
                   <div className="text-center">
                     <div className="text-3xl font-bold text-green-600 mb-1">
-                      {formatNumber(stats.resolvedIssues)}
+                      {formatNumber(stats.resolvedIssues || stats.overview?.resolved || 0)}
                     </div>
                     <div className="text-sm text-gray-600">Issues Resolved</div>
                   </div>
-                  
                   <div className="text-center">
                     <div className="text-3xl font-bold text-purple-600 mb-1">
-                      {formatNumber(stats.activeContributors)}
+                      {formatNumber(stats.activeContributors || stats.overview?.uniqueUsers?.length || 0)}
                     </div>
                     <div className="text-sm text-gray-600">Active Contributors</div>
                   </div>
-                  
                   <div className="pt-4 border-t">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Resolution Rate</span>
                       <span className="font-semibold text-green-600">
-                        {Math.round((stats.resolvedIssues / stats.totalIssues) * 100) || 0}%
+                        {Math.round(((stats.resolvedIssues || stats.overview?.resolved || 0) / (stats.totalIssues || stats.overview?.total || 1)) * 100) || 0}%
                       </span>
                     </div>
                     <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${Math.round((stats.resolvedIssues / stats.totalIssues) * 100) || 0}%` }}
+                        style={{ width: `${Math.round(((stats.resolvedIssues || stats.overview?.resolved || 0) / (stats.totalIssues || stats.overview?.total || 1)) * 100) || 0}%` }}
                       />
                     </div>
                   </div>

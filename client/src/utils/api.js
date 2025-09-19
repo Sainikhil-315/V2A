@@ -213,7 +213,9 @@ export const issuesAPI = {
   upvote: (id) => api.post(`/issues/${id}/upvote`),
   getMyIssues: (params) => api.get('/issues/my/issues', { params }),
   getStats: () => api.get('/issues/stats/overview'),
-  search: (params) => api.get('/issues/search/text', { params })
+  search: (params) => api.get('/issues/search/text', { params }),
+  deleteComment: (issueId, commentId) => api.delete(`/issues/${issueId}/comments/${commentId}`),
+  getViews: (issueId) => api.get(`/issues/${issueId}/views`),
 };
 
 export const adminAPI = {
@@ -230,6 +232,7 @@ export const adminAPI = {
   getSystemHealth: () => api.get('/admin/system/health')
 };
 
+
 export const authoritiesAPI = {
   getAll: (params) => api.get('/authorities', { params }),
   getById: (id) => api.get(`/authorities/${id}`),
@@ -241,7 +244,17 @@ export const authoritiesAPI = {
   getMetrics: (id, params) => api.get(`/authorities/${id}/metrics`, { params }),
   getByDepartment: (department) => api.get(`/authorities/department/${department}`),
   findByLocation: (data) => api.post('/authorities/find-by-location', data),
-  getStats: () => api.get('/authorities/stats/overview')
+  getStats: () => api.get('/authorities/stats/overview'),
+  requestOtp: ({ email }) => api.post('/authorities/login/request-otp', { email }),
+  verifyOtp: ({ email, otp }) => api.post('/authorities/login/verify-otp', { email, otp }),
+  getAssignedIssues: (authorityId, token) =>
+    api.get(`/authorities/${authorityId}/issues`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }),
+  resolveIssue: (authorityId, issueId, token) =>
+    api.put(`/authorities/${authorityId}/issues/${issueId}`, { status: 'resolved' }, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
 };
 
 export const leaderboardAPI = {

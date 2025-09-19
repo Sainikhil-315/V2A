@@ -385,6 +385,7 @@ const validatePasswordUpdate = (data) => {
 const validateSearchFilter = (data) => {
   const schema = Joi.object({
     q: Joi.string().max(100).optional(), // Search query
+    reporter: Joi.string().optional(),
     category: Joi.string()
       .valid(
         'road_maintenance',
@@ -529,6 +530,15 @@ const validateIssueStatusUpdate = (data) => {
   return schema.validate(data);
 };
 
+// Comment deletion validation
+const validateCommentDelete = (data) => {
+  const schema = Joi.object({
+    issueId: Joi.string().required(),
+    commentId: Joi.string().required()
+  });
+  return schema.validate(data);
+};
+
 module.exports = {
   validateUserRegistration,
   validateUserLogin,
@@ -541,5 +551,6 @@ module.exports = {
   validatePasswordUpdate,
   validateSearchFilter,
   validateGeolocation,
-  validateBulkOperation
+  validateBulkOperation,
+  validateCommentDelete,
 };

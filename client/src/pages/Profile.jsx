@@ -207,40 +207,54 @@ const StatsTab = () => {
   }, [user?.id])
 
   const loadUserStats = async () => {
-    if (!user?.id) return
-
-    setLoading(true)
+    if (!user?.id) return;
+    setLoading(true);
     try {
       const [historyResponse, issuesResponse, achievementsResponse] = await Promise.all([
         leaderboardAPI.getUserHistory(user.id),
         issuesAPI.getMyIssues({ limit: 5, sort: '-createdAt' }),
-        leaderboardAPI.getAchievements().catch(() => ({ data: [] })) // Fallback if endpoint doesn't exist
-      ])
+        leaderboardAPI.getAchievements().catch(() => ({ data: [] }))
+      ]);
 
-      setUserHistory(historyResponse.data)
-      setRecentIssues(issuesResponse.data.issues || [])
-      setAchievements(achievementsResponse.data || [])
+      // Defensive: support both .data and .data.data for issues
+      const issuesData = issuesResponse.data?.data || issuesResponse.data || {};
+      const issuesList = issuesData.issues || [];
+      const totalIssues = issuesData.total || issuesList.length;
+      // Defensive: support both .data and .data.data for history
+      const historyData = historyResponse.data || historyResponse;
+
+      // Patch recent issues for id/_id and upvotes/comments
+      const mappedIssues = issuesList.map(issue => ({
+        ...issue,
+        id: issue.id || issue._id,
+        upvotes: issue.upvotes || issue.upvoteCount || 0,
+        comments: issue.comments || issue.commentCount || 0
+      }));
+      setRecentIssues(mappedIssues);
+      setAchievements(achievementsResponse.data || []);
 
       // Calculate additional stats
-      const resolvedIssues = issuesResponse.data.issues?.filter(issue => issue.status === 'resolved').length || 0
-      const totalIssues = issuesResponse.data.total || 0
-      
+      const resolvedIssues = mappedIssues.filter(issue => issue.status === 'resolved').length || 0;
+      // Use user.stats if available for fallback
+      const userStats = user.stats || {};
       setStats({
-        issuesReported: totalIssues,
-        issuesResolved: resolvedIssues,
-        totalPoints: historyResponse.data.totalPoints || 0,
-        currentRank: historyResponse.data.rank || 0,
-        monthlyPoints: historyResponse.data.monthlyPoints || 0,
-        contributions: historyResponse.data.monthlyContributions || [],
-        resolutionRate: totalIssues > 0 ? Math.round((resolvedIssues / totalIssues) * 100) : 0
-      })
+        issuesReported: totalIssues || userStats.totalIssuesReported || 0,
+        issuesResolved: resolvedIssues || userStats.issuesResolved || 0,
+        totalPoints: historyData.totalPoints ?? userStats.contributionScore ?? 0,
+        currentRank: historyData.rank ?? 0,
+        monthlyPoints: historyData.monthlyPoints ?? 0,
+        contributions: historyData.monthlyContributions ?? [],
+        resolutionRate: (totalIssues > 0 ? Math.round((resolvedIssues / totalIssues) * 100) : 0),
+        monthlyIssues: historyData.monthlyIssues ?? 0,
+        rankChange: historyData.rankChange ?? 0
+      });
     } catch (error) {
-      console.error('Error loading user stats:', error)
-      toast.error('Failed to load statistics')
+      console.error('Error loading user stats:', error);
+      toast.error('Failed to load statistics');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -275,6 +289,7 @@ const StatsTab = () => {
   return (
     <div className="space-y-8">
       {/* Quick Stats Cards */}
+      {/* {console.log("stats:", stats)} */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
@@ -371,7 +386,7 @@ const StatsTab = () => {
           {recentIssues.length > 0 ? (
             <div className="space-y-4">
               {recentIssues.map(issue => (
-                <div key={issue.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div key={issue._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-900 truncate">{issue.title}</h4>
                     <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">

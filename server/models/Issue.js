@@ -173,6 +173,10 @@ const issueSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  views: {
+    type: Number,
+    default: 0,
   }
 });
 
@@ -181,6 +185,9 @@ issueSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
+
+// Add text index for search
+issueSchema.index({ title: 'text', description: 'text' });
 
 // Add timeline entry when status changes
 issueSchema.pre('save', function(next) {

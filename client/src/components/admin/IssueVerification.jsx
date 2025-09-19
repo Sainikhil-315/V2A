@@ -1,5 +1,6 @@
 // src/components/admin/IssueVerification.jsx
 import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { 
   Check, 
   X, 
@@ -12,7 +13,7 @@ import {
   ChevronDown,
   AlertTriangle
 } from 'lucide-react'
-import { adminAPI } from '../../utils/api'
+import { adminAPI, issuesAPI } from '../../utils/api'
 import { formatRelativeTime, getCategoryInfo, truncate } from '../../utils/helpers'
 import { ISSUE_CATEGORIES } from '../../utils/constants'
 import LoadingButton from '../common/LoadingButton'
@@ -20,41 +21,116 @@ import { SkeletonLoader } from '../common/Loader'
 import toast from 'react-hot-toast'
 
 const IssueVerification = () => {
+  const [searchParams] = useSearchParams()
   const [issues, setIssues] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedIssue, setSelectedIssue] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  
+  // Search and filter states
+  const [searchInput, setSearchInput] = useState('')
   const [filters, setFilters] = useState({
     category: '',
     priority: '',
     search: ''
   })
+  
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 12,
     total: 0
   })
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: searchInput }))
+    }, 500)
+    
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [filters])
+
+  // Load issues when filters or page changes
   useEffect(() => {
     loadPendingIssues()
   }, [filters, pagination.page])
 
+  // Handle direct issue link from admin dashboard
+  useEffect(() => {
+    const issueId = searchParams.get('issue')
+    if (issueId && issues.length > 0) {
+      const issue = issues.find(i => i._id === issueId)
+      if (issue) {
+        openIssueModal(issue)
+      }
+    }
+  }, [issues, searchParams])
+
   const loadPendingIssues = async () => {
     setLoading(true)
     try {
-      const params = {
-        page: pagination.page,
-        limit: pagination.limit,
-        ...filters
+      let response
+
+      if (filters.search) {
+        // Use search endpoint for text queries
+        const searchParams = {
+          q: filters.search.trim(),
+          page: pagination.page,
+          limit: pagination.limit
+        }
+        
+        response = await issuesAPI.search(searchParams)
+        
+        // Filter to only show pending issues from search results
+        const pendingIssues = response.data.data.issues.filter(issue => 
+          issue.status === 'pending'
+        )
+        
+        // Apply additional filters to search results
+        let filteredIssues = pendingIssues
+        
+        if (filters.category) {
+          filteredIssues = filteredIssues.filter(issue => 
+            issue.category === filters.category
+          )
+        }
+        
+        if (filters.priority) {
+          filteredIssues = filteredIssues.filter(issue => 
+            issue.priority === filters.priority
+          )
+        }
+        
+        setIssues(filteredIssues)
+        setPagination(prev => ({
+          ...prev,
+          total: filteredIssues.length
+        }))
+      } else {
+        // Use regular pending issues endpoint
+        const cleanFilters = Object.fromEntries(
+          Object.entries(filters).filter(([key, value]) => key !== 'search' && value !== '')
+        )
+        
+        const params = {
+          page: pagination.page,
+          limit: pagination.limit,
+          ...cleanFilters
+        }
+        
+        response = await adminAPI.getPendingIssues(params)
+        setIssues(response.data.data.issues)
+        setPagination(prev => ({
+          ...prev,
+          total: response.data.data.pagination.total
+        }))
       }
-      
-      const response = await adminAPI.getPendingIssues(params)
-      setIssues(response.data.data.issues)
-      setPagination(prev => ({
-        ...prev,
-        total: response.data.data.pagination.total
-      }))
     } catch (error) {
       console.error('Error loading pending issues:', error)
       toast.error('Failed to load issues')
@@ -65,28 +141,28 @@ const IssueVerification = () => {
 
   const handleApproveIssue = async (issueId, assignToAuthority = null) => {
     if (!issueId) {
-      toast.error('Invalid issue ID');
-      return;
+      toast.error('Invalid issue ID')
+      return
     }
     setActionLoading(true)
     try {
       const payload = {
         status: 'verified',
         adminNotes: 'Issue approved by admin'
-      };
-      if (assignToAuthority && typeof assignToAuthority === 'string' && assignToAuthority.trim() !== '') {
-        payload.assignedTo = assignToAuthority;
       }
-      await adminAPI.updateIssueStatus(issueId, payload);
-      toast.success('Issue approved successfully');
-  setIssues(prev => prev.filter(issue => issue._id !== issueId));
-      setShowModal(false);
-      setSelectedIssue(null);
+      if (assignToAuthority && typeof assignToAuthority === 'string' && assignToAuthority.trim() !== '') {
+        payload.assignedTo = assignToAuthority
+      }
+      await adminAPI.updateIssueStatus(issueId, payload)
+      toast.success('Issue approved successfully')
+      setIssues(prev => prev.filter(issue => issue._id !== issueId))
+      setShowModal(false)
+      setSelectedIssue(null)
     } catch (error) {
-      console.error('Error approving issue:', error);
-      toast.error('Failed to approve issue');
+      console.error('Error approving issue:', error)
+      toast.error('Failed to approve issue')
     } finally {
-      setActionLoading(false);
+      setActionLoading(false)
     }
   }
 
@@ -100,7 +176,7 @@ const IssueVerification = () => {
       })
       
       toast.success('Issue rejected')
-  setIssues(prev => prev.filter(issue => issue._id !== issueId))
+      setIssues(prev => prev.filter(issue => issue._id !== issueId))
       setShowModal(false)
       setSelectedIssue(null)
     } catch (error) {
@@ -119,11 +195,6 @@ const IssueVerification = () => {
   const closeModal = () => {
     setShowModal(false)
     setSelectedIssue(null)
-  }
-
-  const handleBulkAction = async (action, selectedIds) => {
-    // Bulk operations implementation
-    console.log('Bulk action:', action, selectedIds)
   }
 
   if (loading && issues.length === 0) {
@@ -170,18 +241,23 @@ const IssueVerification = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search issues..."
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  className="pl-10 form-input w-full"
+                  placeholder="Search issues by title (min 2 characters)..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="pl-10 form-input w-full text-black"
                 />
               </div>
+              {/* {searchInput.length > 0 && searchInput.length < 2 && (
+                <p className="text-xs text-red-500 mt-1">
+                  Search requires at least 2 characters
+                </p>
+              )} */}
             </div>
             
             <select
               value={filters.category}
               onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-              className="form-select w-auto"
+              className="form-select w-auto text-black"
             >
               <option value="">All Categories</option>
               {ISSUE_CATEGORIES?.map(cat => (
@@ -194,7 +270,7 @@ const IssueVerification = () => {
             <select
               value={filters.priority}
               onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-              className="form-select w-auto"
+              className="form-select w-auto text-black"
             >
               <option value="">All Priorities</option>
               <option value="low">Low</option>
@@ -209,13 +285,36 @@ const IssueVerification = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {issues?.length === 0 ? (
           <div className="text-center py-12">
-            <Check className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              All caught up!
-            </h3>
-            <p className="text-gray-600">
-              No pending issues to review at the moment.
-            </p>
+            {filters.search ? (
+              <>
+                <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No pending issues found
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  No pending issues match your search for "{filters.search}"
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchInput('')
+                    setFilters(prev => ({ ...prev, search: '' }))
+                  }}
+                  className="btn btn-outline"
+                >
+                  Clear search
+                </button>
+              </>
+            ) : (
+              <>
+                <Check className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  All caught up!
+                </h3>
+                <p className="text-gray-600">
+                  No pending issues to review at the moment.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <>
@@ -252,7 +351,7 @@ const IssueVerification = () => {
                       <div className="space-y-2 text-sm text-gray-500">
                         <div className="flex items-center">
                           <User className="w-4 h-4 mr-2" />
-                          {issue.user?.name || 'Anonymous'}
+                          {issue.user?.name || issue.reporter?.name || 'Anonymous'}
                         </div>
                         
                         <div className="flex items-center">
@@ -325,8 +424,8 @@ const IssueVerification = () => {
               })}
             </div>
             
-            {/* Pagination */}
-            {pagination.total > pagination.limit && (
+            {/* Pagination - Only show if not searching or search has many results */}
+            {pagination.total > pagination.limit && !filters.search && (
               <div className="mt-8 flex items-center justify-between">
                 <div className="text-sm text-gray-500">
                   Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
@@ -404,7 +503,7 @@ const IssueDetailView = ({ issue, onApprove, onReject, loading }) => {
       toast.error('Please provide a rejection reason')
       return
     }
-  onReject(issue._id, rejectionReason)
+    onReject(issue._id, rejectionReason)
   }
 
   return (
@@ -423,7 +522,7 @@ const IssueDetailView = ({ issue, onApprove, onReject, loading }) => {
           <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
             <div className="flex items-center">
               <User className="w-4 h-4 mr-1" />
-              {issue.user?.name || 'Anonymous'}
+              {issue.user?.name || issue.reporter?.name || 'Anonymous'}
             </div>
             
             <div className="flex items-center">
@@ -450,9 +549,9 @@ const IssueDetailView = ({ issue, onApprove, onReject, loading }) => {
             <MapPin className="w-4 h-4 mr-2" />
             <span>{issue.location.address}</span>
           </div>
-          {issue.location.lat && issue.location.lng && (
+          {issue.location.coordinates && (
             <p className="text-sm text-gray-500 mt-1">
-              Coordinates: {issue.location.lat.toFixed(6)}, {issue.location.lng.toFixed(6)}
+              Coordinates: {issue.location.coordinates.lat?.toFixed(6)}, {issue.location.coordinates.lng?.toFixed(6)}
             </p>
           )}
         </div>
@@ -469,7 +568,8 @@ const IssueDetailView = ({ issue, onApprove, onReject, loading }) => {
                   <img
                     src={media.url}
                     alt={`Issue media ${index + 1}`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover cursor-pointer"
+                    onClick={() => window.open(media.url, '_blank')}
                   />
                 ) : media.type === 'video' ? (
                   <video

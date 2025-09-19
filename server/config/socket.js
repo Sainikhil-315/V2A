@@ -1,6 +1,7 @@
 // config/socket.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Issue = require('../models/Issue');
 
 const setupSocket = (io) => {
   // Socket.io authentication middleware
@@ -112,6 +113,22 @@ const setupSocket = (io) => {
     // Handle connection errors
     socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
+    });
+
+    socket.on('issue:view', async (issueId) => {
+      try {
+        const issue = await Issue.findByIdAndUpdate(
+          issueId,
+          { $inc: { views: 1 } },
+          { new: true }
+        );
+        if (issue) {
+          // Emit updated view count to all clients viewing this issue
+          io.emit(`issue:${issueId}:views`, issue.views);
+        }
+      } catch (err) {
+        console.error('Error incrementing view count:', err);
+      }
     });
   });
 

@@ -19,6 +19,7 @@ import LoadingButton from '../components/common/Loader'
 import { SkeletonLoader } from '../components/common/Loader'
 import IssueCard from '../components/user/IssueCard'
 import toast from 'react-hot-toast'
+import IssueDetailPage from './IssueDetailPage'
 
 const IssueTracking = () => {
   const { id } = useParams()
@@ -51,21 +52,36 @@ const IssueTracking = () => {
   const loadIssues = async () => {
     setLoading(true)
     try {
+      // Remove empty string values and ensure 'sortBy' is valid before sending to backend
+      const allowedSortBy = ["createdAt", "updatedAt", "priority", "status"];
+  // Clean filters and map 'search' to 'q' for backend
+      let cleanFilters = Object.fromEntries(
+        Object.entries(filters)
+          .filter(([k, v]) => v !== "")
+          .filter(([k, v]) => k !== "sortBy" || allowedSortBy.includes(v))
+      );
+      // Map 'search' to 'q' for backend
+      if (cleanFilters.search) {
+        cleanFilters.q = cleanFilters.search;
+        delete cleanFilters.search;
+      }
+      // Map UI sortBy values to backend-allowed sortBy values
+      let sortByValue = cleanFilters.sortBy;
+      if (!sortByValue || !allowedSortBy.includes(sortByValue)) {
+        sortByValue = undefined;
+      }
       const params = {
         page: pagination.page,
         limit: pagination.limit,
-        sort: filters.sortBy === 'newest' ? '-createdAt' : 
-              filters.sortBy === 'oldest' ? 'createdAt' :
-              filters.sortBy === 'popular' ? '-upvotes' : '-createdAt',
-        ...filters
-      }
-      
-      const response = await issuesAPI.getAll(params)
-      setIssues(response.data.issues)
+        ...(sortByValue ? { sortBy: sortByValue } : {}),
+        ...Object.fromEntries(Object.entries(cleanFilters).filter(([k]) => k !== 'sortBy'))
+      };
+      const response = await issuesAPI.getAll(params);
+      setIssues(response.data.data.issues);
       setPagination(prev => ({
         ...prev,
         total: response.data.total
-      }))
+      }));
     } catch (error) {
       console.error('Error loading issues:', error)
       toast.error('Failed to load issues')
@@ -103,7 +119,7 @@ const IssueTracking = () => {
   const handleUpvote = async (issueId) => {
     try {
       await issuesAPI.upvote(issueId)
-      if (selectedIssue && selectedIssue.id === issueId) {
+      if (selectedIssue && selectedIssue._id === issueId) {
         setSelectedIssue(prev => ({
           ...prev,
           upvotes: prev.userHasUpvoted ? prev.upvotes - 1 : prev.upvotes + 1,
@@ -201,7 +217,7 @@ const IssueTracking = () => {
             <select
               value={filters.category}
               onChange={(e) => handleFilterChange('category', e.target.value)}
-              className="form-select"
+              className="form-select text-black"
             >
               <option value="">All Categories</option>
               {ISSUE_CATEGORIES.map(cat => (
@@ -214,7 +230,7 @@ const IssueTracking = () => {
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="form-select"
+              className="form-select text-black"
             >
               <option value="">All Status</option>
               {ISSUE_STATUS.map(status => (
@@ -227,7 +243,7 @@ const IssueTracking = () => {
             <select
               value={filters.priority}
               onChange={(e) => handleFilterChange('priority', e.target.value)}
-              className="form-select"
+              className="form-select text-black"
             >
               <option value="">All Priority</option>
               {ISSUE_PRIORITY.map(priority => (
@@ -240,7 +256,7 @@ const IssueTracking = () => {
             <select
               value={filters.sortBy}
               onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-              className="form-select"
+              className="form-select text-black"
             >
               <option value="newest">Newest First</option>
               <option value="oldest">Oldest First</option>
@@ -288,9 +304,9 @@ const IssueTracking = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               {issues.map(issue => (
                 <IssueCard 
-                  key={issue.id} 
+                  key={issue._id || issue.id}
                   issue={issue}
-                  onUpvote={() => handleUpvote(issue.id)}
+                  onUpvote={() => handleUpvote(issue._id || issue.id)}
                 />
               ))}
             </div>
@@ -328,267 +344,5 @@ const IssueTracking = () => {
   )
 }
 
-
-// Issue Detail Page Component
-const IssueDetailPage = ({ issue, onUpvote, onShare }) => {
-  const [comments, setComments] = useState([])
-  const [newComment, setNewComment] = useState('')
-  const [commentLoading, setCommentLoading] = useState(false)
-  const category = getCategoryInfo(issue.category)
-  const statusColor = getStatusColor(issue.status)
-
-  useEffect(() => {
-    // Load comments - mock data for now
-    setComments([
-      {
-        id: 1,
-        user: { name: 'Admin', role: 'admin' },
-        content: 'We have forwarded this issue to the relevant authority. They will start working on it soon.',
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        isOfficial: true
-      },
-      {
-        id: 2,
-        user: { name: 'Local Resident' },
-        content: 'This has been a problem for weeks. Thank you for reporting it!',
-        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        isOfficial: false
-      }
-    ])
-  }, [issue.id])
-
-  const handleAddComment = async (e) => {
-    e.preventDefault()
-    if (!newComment.trim()) return
-
-    setCommentLoading(true)
-    try {
-      await issuesAPI.addComment(issue.id, { content: newComment })
-      
-      // Add to local state
-      const comment = {
-        id: Date.now(),
-        user: { name: 'You' },
-        content: newComment,
-        createdAt: new Date(),
-        isOfficial: false
-      }
-      setComments(prev => [...prev, comment])
-      setNewComment('')
-      toast.success('Comment added successfully')
-    } catch (error) {
-      console.error('Error adding comment:', error)
-      toast.error('Failed to add comment')
-    } finally {
-      setCommentLoading(false)
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Back Button */}
-        <div className="mb-6">
-          <button
-            onClick={() => window.history.back()}
-            className="text-primary-600 hover:text-primary-700 flex items-center"
-          >
-            ← Back to Issues
-          </button>
-        </div>
-
-        {/* Issue Header */}
-        <div className="bg-white rounded-lg shadow-sm border p-8 mb-8">
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex items-start space-x-4">
-              <div className={`p-3 rounded-lg bg-${category.color}-100`}>
-                <span className="text-2xl">{category.icon}</span>
-              </div>
-              
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {issue.title}
-                </h1>
-                
-                <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
-                  <span>#{issue.id}</span>
-                  <span>•</span>
-                  <span>Reported {formatRelativeTime(issue.createdAt)}</span>
-                  <span>•</span>
-                  <span>by {issue.user?.name || 'Anonymous'}</span>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-${statusColor}-100 text-${statusColor}-800 capitalize`}>
-                    {issue.status.replace('_', ' ')}
-                  </span>
-                  
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-${issue.priority === 'urgent' ? 'red' : 'blue'}-100 text-${issue.priority === 'urgent' ? 'red' : 'blue'}-800 capitalize`}>
-                    {issue.priority} priority
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => onUpvote(issue.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors ${
-                  issue.userHasUpvoted 
-                    ? 'bg-primary-50 border-primary-200 text-primary-700' 
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <ThumbsUp className="w-4 h-4" />
-                <span>{issue.upvotes || 0}</span>
-              </button>
-              
-              <button
-                onClick={() => onShare(issue)}
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                <span>Share</span>
-              </button>
-              
-              <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors">
-                <Flag className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Location */}
-          {issue.location && (
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center text-gray-700">
-                <MapPin className="w-5 h-5 mr-2" />
-                <span>{issue.location.address}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Description */}
-          <div className="prose max-w-none">
-            <p className="text-gray-700 leading-relaxed text-lg">
-              {issue.description}
-            </p>
-          </div>
-
-          {/* Media */}
-          {issue.media && issue.media.length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Attachments</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {issue.media.map((media, index) => (
-                  <div key={index} className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                    {media.type === 'image' ? (
-                      <img
-                        src={media.url}
-                        alt={`Issue media ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : media.type === 'video' ? (
-                      <video
-                        src={media.url}
-                        controls
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="w-12 h-12 bg-gray-300 rounded mx-auto mb-2" />
-                          <span className="text-sm text-gray-600">Audio File</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Voice Note */}
-          {issue.voiceNote && (
-            <div className="mt-8">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Voice Note</h3>
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <audio controls className="w-full">
-                  <source src={issue.voiceNote.url} type="audio/wav" />
-                  Your browser does not support the audio element.
-                </audio>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Comments Section */}
-        <div className="bg-white rounded-lg shadow-sm border p-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
-            Comments ({comments.length})
-          </h2>
-
-          {/* Add Comment Form */}
-          <form onSubmit={handleAddComment} className="mb-8">
-            <textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              rows={3}
-              className="form-textarea w-full mb-4"
-              placeholder="Add a comment..."
-            />
-            <div className="flex justify-end">
-              <LoadingButton
-                loading={commentLoading}
-                type="submit"
-                disabled={!newComment.trim()}
-                className="btn btn-primary"
-              >
-                Add Comment
-              </LoadingButton>
-            </div>
-          </form>
-
-          {/* Comments List */}
-          <div className="space-y-6">
-            {comments.map(comment => (
-              <div key={comment.id} className="flex space-x-4">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-gray-600">
-                      {comment.user.name.charAt(0)}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-medium text-gray-900">{comment.user.name}</span>
-                    {comment.isOfficial && (
-                      <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                        Official
-                      </span>
-                    )}
-                    <span className="text-sm text-gray-500">
-                      {formatRelativeTime(comment.createdAt)}
-                    </span>
-                  </div>
-                  <p className="text-gray-700">{comment.content}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {comments.length === 0 && (
-            <div className="text-center py-8">
-              <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No comments yet</h3>
-              <p className="text-gray-600">Be the first to comment on this issue</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default IssueTracking

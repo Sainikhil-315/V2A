@@ -879,5 +879,42 @@ router.post('/:id/comments', protect, async (req, res) => {
   }
 });
 
+// @desc    Delete a comment from an issue
+// @route   DELETE /api/issues/:issueId/comments/:commentId
+// @access  Private
+router.delete('/:issueId/comments/:commentId', protect, async (req, res) => {
+  try {
+    const { issueId, commentId } = req.params;
+    const issue = await Issue.findById(issueId);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Issue not found' });
+    }
+
+    // Find the comment
+    const comment = issue.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ success: false, message: 'Comment not found' });
+    }
+
+    // Only the comment owner or admin can delete
+    if (
+      comment.user.toString() !== req.user._id.toString() &&
+      req.user.role !== 'admin'
+    ) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this comment' });
+    }
+
+    issue.comments = issue.comments.filter(c => c._id.toString() !== commentId);
+await issue.save();
+
+    res.json({ success: true, message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error('Delete comment error:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete comment', error: error.message });
+  }
+});
+
+
 
 module.exports = router;

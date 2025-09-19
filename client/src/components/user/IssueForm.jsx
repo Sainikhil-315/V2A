@@ -162,7 +162,7 @@ const IssueForm = () => {
       const response = await issuesAPI.create(formData)
       
       toast.success('Issue reported successfully!')
-      navigate(`/issues/${response.data.issue.id}`)
+      navigate(`/issues/${response.data.data.issue._id}`)
     } catch (error) {
       console.error('Error creating issue:', error)
       toast.error('Failed to report issue. Please try again.')

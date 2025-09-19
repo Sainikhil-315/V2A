@@ -41,10 +41,10 @@ export const SocketProvider = ({ children }) => {
           auth: { token },
           transports: ["polling", "websocket"],
           timeout: 20000,
-          forceNew: true,
+          // forceNew: true,
         }
       );
-
+      newSocket.connect();
       socketRef.current = newSocket;
 
       // Connection events

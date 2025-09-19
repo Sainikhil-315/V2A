@@ -42,6 +42,7 @@ const Login = () => {
     if (result.success) {
       const from = location.state?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
+      window.location.reload(); // Reload to reset state
     }
   };
 

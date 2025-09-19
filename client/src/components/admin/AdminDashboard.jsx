@@ -359,7 +359,7 @@ const AdminDashboard = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <a
-                            href={`/admin/verification?issue=${issue.id}`}
+                            href={`/admin/verification?issue=${issue._id}`}
                             className="text-primary-600 hover:text-primary-900"
                           >
                             Review

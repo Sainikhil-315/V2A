@@ -148,6 +148,7 @@ const AuthorityManager = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Authorities Table */}
+        {console.log(authorities)}
         <div className="bg-white shadow-sm rounded-lg border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">

@@ -14,6 +14,7 @@ import Loader from './components/common/Loader';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import NotificationToast from './components/common/NotificationToast';
 import SiteTour from './components/tour/SiteTour';
+import IssueDetailPage from './pages/IssueDetailPage';
 
 // Pages - Lazy loaded for better performance
 const Home = React.lazy(() => import('./pages/Home'));
@@ -28,6 +29,11 @@ const IssueVerification = React.lazy(() => import('./components/admin/IssueVerif
 const IssueAnalytics = React.lazy(() => import('./components/admin/AnalyticsDashboard'));
 const AuthorityManager = React.lazy(() => import('./components/admin/AuthorityManager'));
 
+
+// Authority Login and Dashboard (not lazy for login UX)
+const AuthorityLogin = React.lazy(() => import('./components/authority/AuthorityLogin'));
+const AuthorityDashboard = React.lazy(() => import('./components/authority/AuthorityDashboard'));
+
 // Loading fallback component
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -36,6 +42,22 @@ const PageLoader = () => (
 );
 
 function App() {
+  // Minimal state for authority login session
+  const [authoritySession, setAuthoritySession] = React.useState(() => {
+    const stored = localStorage.getItem('authoritySession');
+    return stored ? JSON.parse(stored) : null;
+  });
+
+  const handleAuthorityLogin = (token, authority) => {
+    const session = { token, authority };
+    setAuthoritySession(session);
+    localStorage.setItem('authoritySession', JSON.stringify(session));
+  };
+  const handleAuthorityLogout = () => {
+    setAuthoritySession(null);
+    localStorage.removeItem('authoritySession');
+  };
+
   return (
     <AuthProvider>
       <SocketProvider>
@@ -66,7 +88,7 @@ function App() {
             <NotificationToast />
 
             {/* Site Tour */}
-            <SiteTour />
+            {/* <SiteTour /> */}
 
             {/* Header */}
             <Header />
@@ -79,6 +101,21 @@ function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  {/* Authority Login Route */}
+                  <Route
+                    path="/authority/login"
+                    element={
+                      authoritySession ? (
+                        <AuthorityDashboard
+                          authority={authoritySession.authority}
+                          token={authoritySession.token}
+                          onLogout={handleAuthorityLogout}
+                        />
+                      ) : (
+                        <AuthorityLogin onLogin={handleAuthorityLogin} />
+                      )
+                    }
+                  />
                   
                   {/* Protected Routes */}
                   <Route
@@ -94,6 +131,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <IssueTracking />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/issues/:id"
+                    element={
+                      <ProtectedRoute>
+                        <IssueDetailPage />
                       </ProtectedRoute>
                     }
                   />
