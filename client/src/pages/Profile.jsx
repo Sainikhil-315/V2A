@@ -394,6 +394,8 @@ const StatsTab = () => {
                         issue.status === 'resolved' ? 'bg-green-100 text-green-800' :
                         issue.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                         issue.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        issue.status === 'verified' ? 'bg-blue-100 text-blue-800' :
+                        issue.status === 'rejected' ? 'bg-red-100 text-red-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {issue.status.replace('_', ' ')}
@@ -401,10 +403,10 @@ const StatsTab = () => {
                       <span>{formatRelativeTime(issue.createdAt)}</span>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  {/* <div className="flex items-center space-x-2 text-sm text-gray-500">
                     <span>👍 {issue.upvotes || 0}</span>
                     <span>💬 {issue.comments || 0}</span>
-                  </div>
+                  </div> */}
                 </div>
               ))}
             </div>

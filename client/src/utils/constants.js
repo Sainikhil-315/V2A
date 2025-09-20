@@ -40,10 +40,10 @@ export const ISSUE_STATUS = [
   { value: 'pending', label: 'Pending', color: 'yellow', description: 'Waiting for admin review' },
   { value: 'verified', label: 'Verified', color: 'blue', description: 'Verified by admin' },
   { value: 'rejected', label: 'Rejected', color: 'red', description: 'Rejected by admin' },
-  { value: 'assigned', label: 'Assigned', color: 'purple', description: 'Assigned to authority' },
+  // { value: 'assigned', label: 'Assigned', color: 'purple', description: 'Assigned to authority' },
   { value: 'in_progress', label: 'In Progress', color: 'orange', description: 'Being worked on' },
   { value: 'resolved', label: 'Resolved', color: 'green', description: 'Issue resolved' },
-  { value: 'closed', label: 'Closed', color: 'gray', description: 'Issue closed' }
+  // { value: 'closed', label: 'Closed', color: 'gray', description: 'Issue closed' }
 ];
 
 // Issue Priority
