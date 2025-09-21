@@ -263,7 +263,7 @@ const Login = () => {
         </motion.form>
 
         {/* Demo Credentials (Development Only) */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* {process.env.NODE_ENV === 'development' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -276,7 +276,7 @@ const Login = () => {
               <p><strong>User:</strong> user@voice2action.com / user123</p>
             </div>
           </motion.div>
-        )}
+        )} */}
 
         {/* Footer */}
         <motion.div

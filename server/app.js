@@ -13,6 +13,7 @@ const issueRoutes = require('./routes/issues');
 const adminRoutes = require('./routes/admin');
 const authorityRoutes = require('./routes/authorities');
 const leaderboardRoutes = require('./routes/leaderboard');
+const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 
@@ -42,7 +43,10 @@ const corsOptions = {
       process.env.CLIENT_URL,
       'http://localhost:3000',
       'http://localhost:3001',
-      'http://127.0.0.1:3000'
+      'http://127.0.0.1:3000',
+      'http://192.168.0.187:8081', // Add your local network IP for mobile testing
+      'http://192.168.0.187:3000', // Add your local network IP for mobile testing
+      'exp://kdn9mau-anonymous-8081.exp.direct',
     ];
     
     // Allow requests with no origin (mobile apps, etc.)
@@ -139,6 +143,7 @@ app.use('/api/issues', issueRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/authorities', authorityRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {

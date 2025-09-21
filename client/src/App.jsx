@@ -242,36 +242,42 @@ const PWAInstallBanner = () => {
 
   React.useEffect(() => {
     const handleInstallPrompt = (e) => {
-      setDeferredPrompt(e.detail.prompt);
+      e.preventDefault(); // prevent default mini-infobar
+      setDeferredPrompt(e);
       setShowInstall(true);
     };
 
-    window.addEventListener('installprompt', handleInstallPrompt);
-    return () => window.removeEventListener('installprompt', handleInstallPrompt);
+    window.addEventListener("beforeinstallprompt", handleInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
   }, []);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setShowInstall(false);
-      }
-      setDeferredPrompt(null);
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === "accepted") {
+      setShowInstall(false);
     }
+    setDeferredPrompt(null);
   };
 
   const handleDismiss = () => {
     setShowInstall(false);
-    localStorage.setItem('pwa-install-dismissed', Date.now().toString());
+    localStorage.setItem("pwa-install-dismissed", Date.now().toString());
   };
 
-  // Don't show if dismissed recently (within 7 days)
+  // Don’t show if dismissed recently (within 7 days)
   React.useEffect(() => {
-    const dismissed = localStorage.getItem('pwa-install-dismissed');
-    if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 60 * 60 * 1000) {
-      setShowInstall(false);
+    const dismissed = localStorage.getItem("pwa-install-dismissed");
+    if (dismissed) {
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      if (Date.now() - parseInt(dismissed, 10) < sevenDays) {
+        return;
+      }
     }
+    // If not dismissed recently, we rely on beforeinstallprompt event to show
   }, []);
 
   if (!showInstall) return null;

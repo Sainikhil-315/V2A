@@ -1,5 +1,5 @@
-// src/pages/IssueDetailPage.jsx - Complete version with integrated delete modal
-import React, { useEffect, useState } from "react";
+// src/pages/IssueDetailPage.jsx - Complete version with integrated delete modal and macOS animation
+import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { issuesAPI } from "../utils/api";
 import {
@@ -8,7 +8,7 @@ import {
   formatRelativeTime,
 } from "../utils/helpers";
 import {
-  ThumbsUp,
+  ArrowBigUp,
   Share2,
   MessageSquare,
   Trash2,
@@ -18,7 +18,128 @@ import {
 import LoadingButton from "../components/common/LoadingButton";
 import toast from "react-hot-toast";
 
-// Delete Confirmation Modal Component
+// YouTube-style Upvote Animation Component
+const UpvoteAnimation = ({ triggerElement }) => {
+  const animationRef = useRef(null);
+  
+  useEffect(() => {
+    if (triggerElement && animationRef.current) {
+      const animation = animationRef.current;
+      const triggerRect = triggerElement.getBoundingClientRect();
+      
+      // Position animation at the center of the trigger button
+      const centerX = triggerRect.left + triggerRect.width / 2;
+      const centerY = triggerRect.top + triggerRect.height / 2;
+      
+      animation.style.left = centerX + 'px';
+      animation.style.top = centerY + 'px';
+      animation.style.transform = 'translate(-50%, -50%)';
+    }
+  }, [triggerElement]);
+
+  return (
+    <div
+      ref={animationRef}
+      className="fixed z-50 pointer-events-none"
+      style={{ 
+        animation: 'upvotePopup 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards'
+      }}
+    >
+      {/* Main burst container */}
+      <div className="relative">
+        {/* Center icon */}
+        <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-full p-2 shadow-lg animate-bounce">
+            <ArrowBigUp className="w-6 h-6 text-white" />
+          </div>
+        </div>
+        
+        {/* Curly decorations around the icon */}
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2"
+            style={{
+              transform: `translate(-50%, -50%) rotate(${i * 45}deg) translateY(-30px)`,
+              animation: `curlAnimation 0.8s ease-out forwards`,
+              animationDelay: `${i * 0.05}s`
+            }}
+          >
+            <div className="text-2xl animate-pulse">
+              {i % 4 === 0 ? '' : i % 4 === 1 ? '' : i % 4 === 2 ? '' : ''}
+            </div>
+          </div>
+        ))}
+        
+        {/* Additional swirl effects */}
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={`swirl-${i}`}
+            className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2"
+            style={{
+              transform: `translate(-50%, -50%) rotate(${i * 60}deg) translateY(-45px)`,
+              animation: `swirlAnimation 0.8s ease-out forwards`,
+              animationDelay: `${i * 0.08}s`
+            }}
+          >
+            <div className="text-lg">
+              {i % 3 === 0 ? '〰️' : i % 3 === 1 ? '' : ''}
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      <style jsx>{`
+        @keyframes upvotePopup {
+          0% {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0;
+          }
+          50% {
+            transform: translate(-50%, -50%) scale(1.2);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(1) translateY(-20px);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes curlAnimation {
+          0% {
+            transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) translateY(-20px) scale(0);
+            opacity: 0;
+          }
+          50% {
+            opacity: 1;
+            transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) translateY(-35px) scale(1.2);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) translateY(-50px) scale(0.8);
+          }
+        }
+        
+        @keyframes swirlAnimation {
+          0% {
+            transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) translateY(-30px) scale(0);
+            opacity: 0;
+          }
+          40% {
+            opacity: 1;
+            transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) translateY(-50px) scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) translateY(-70px) scale(0.5) rotate(180deg);
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// Delete Confirmation Modal Component with macOS-style animation
 const DeleteConfirmationModal = ({
   isOpen,
   onClose,
@@ -26,24 +147,114 @@ const DeleteConfirmationModal = ({
   title = "Delete Comment",
   message = "Are you sure you want to delete this comment? This action cannot be undone.",
   isLoading = false,
+  triggerElement = null,
 }) => {
+  const modalRef = useRef(null);
+  
+  useEffect(() => {
+    if (isOpen && triggerElement && modalRef.current) {
+      const modal = modalRef.current;
+      const triggerRect = triggerElement.getBoundingClientRect();
+      
+      // Calculate exact bottom-right corner position of trigger
+      const startX = triggerRect.right - 15;
+      const startY = triggerRect.bottom - 15;
+      
+      // Reset any existing transitions
+      modal.style.transition = 'none';
+      modal.style.opacity = '1';
+      modal.style.pointerEvents = 'all';
+      
+      // Set initial position and size - start exactly at bottom-right corner
+      modal.style.left = startX + 'px';
+      modal.style.top = startY + 'px';
+      modal.style.width = '15px';
+      modal.style.height = '15px';
+      modal.style.borderRadius = '8px';
+      modal.style.transformOrigin = 'bottom right';
+      modal.style.overflow = 'hidden';
+      
+      // Force a reflow to ensure initial position is set
+      modal.offsetHeight;
+      
+      // Phase 1: Slow initial growth from corner
+      setTimeout(() => {
+        modal.style.transition = 'all 0.2s cubic-bezier(0.25, 0.1, 0.25, 0.1)';
+        modal.style.left = (startX - 120) + 'px';
+        modal.style.top = (startY - 90) + 'px';
+        modal.style.width = '120px';
+        modal.style.height = '90px';
+        modal.style.borderRadius = '12px';
+      }, 10);
+      
+      // Phase 2: Fast expansion to full size
+      setTimeout(() => {
+        modal.style.transition = 'all 0.3s cubic-bezier(0.1, 0.7, 0.1, 1)';
+        modal.style.left = '50%';
+        modal.style.top = '50%';
+        modal.style.transform = 'translate(-50%, -50%)';
+        modal.style.width = '32rem'; // max-w-lg equivalent
+        modal.style.height = 'auto';
+        modal.style.borderRadius = '0.75rem'; // rounded-xl
+        modal.style.transformOrigin = 'center';
+      }, 220);
+    }
+  }, [isOpen, triggerElement]);
+
+  const handleClose = () => {
+    if (modalRef.current && triggerElement) {
+      const modal = modalRef.current;
+      const triggerRect = triggerElement.getBoundingClientRect();
+      
+      // Hide content immediately
+      const content = modal.querySelector('.modal-content');
+      if (content) {
+        content.style.opacity = '0';
+      }
+      
+      // Animate back to trigger position
+      modal.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.8, 0.4)';
+      modal.style.transform = 'none';
+      modal.style.transformOrigin = 'bottom right';
+      modal.style.left = triggerRect.right - 15 + 'px';
+      modal.style.top = triggerRect.bottom - 15 + 'px';
+      modal.style.width = '15px';
+      modal.style.height = '15px';
+      modal.style.borderRadius = '8px';
+      
+      setTimeout(() => {
+        onClose();
+      }, 400);
+    } else {
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Modal */}
-      <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-        <div className="relative transform overflow-hidden rounded-xl bg-white px-4 pb-4 pt-5 text-left shadow-2xl transition-all duration-300 sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+      <div
+        ref={modalRef}
+        className="fixed bg-white shadow-2xl"
+        style={{
+          opacity: 0,
+          pointerEvents: 'none',
+        }}
+      >
+        <div className="modal-content p-6 transition-opacity duration-300">
           {/* Close button */}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors"
+            disabled={isLoading}
           >
             <X className="w-5 h-5" />
           </button>
@@ -65,7 +276,7 @@ const DeleteConfirmationModal = ({
           <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isLoading}
               className="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors disabled:opacity-50"
             >
@@ -108,8 +319,15 @@ const IssueDetailPage = () => {
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
     commentId: null,
+    triggerElement: null,
   });
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Upvote animation state
+  const [upvoteAnimation, setUpvoteAnimation] = useState({
+    isAnimating: false,
+    triggerElement: null,
+  });
 
   // Helper function to get user name
   const getUserName = (issueData) => {
@@ -156,7 +374,18 @@ const IssueDetailPage = () => {
     fetchIssue();
   }, [id]);
 
-  const handleUpvote = async () => {
+  const handleUpvote = async (event) => {
+    const triggerElement = event.currentTarget;
+    const wasUpvoted = issue.userHasUpvoted;
+    
+    // Only trigger animation when upvoting (not when removing upvote)
+    if (!wasUpvoted) {
+      setUpvoteAnimation({
+        isAnimating: true,
+        triggerElement: triggerElement,
+      });
+    }
+    
     try {
       await issuesAPI.upvote(issue._id);
       setIssue((prev) => {
@@ -176,9 +405,19 @@ const IssueDetailPage = () => {
           userHasUpvoted: !prev.userHasUpvoted,
         };
       });
-      toast.success(issue.userHasUpvoted ? "Upvote removed" : "Issue upvoted");
+      toast.success(wasUpvoted ? "Upvote removed" : "Issue upvoted");
     } catch (err) {
       toast.error("Failed to upvote");
+    }
+
+    // Stop animation after delay (only if it was started)
+    if (!wasUpvoted) {
+      setTimeout(() => {
+        setUpvoteAnimation({
+          isAnimating: false,
+          triggerElement: null,
+        });
+      }, 800);
     }
   };
 
@@ -239,9 +478,14 @@ const IssueDetailPage = () => {
     }
   };
 
-  // Open delete confirmation modal
-  const handleDeleteComment = async (commentId) => {
-    setDeleteModal({ isOpen: true, commentId });
+  // Open delete confirmation modal with animation trigger
+  const handleDeleteComment = async (commentId, event) => {
+    const triggerElement = event.currentTarget;
+    setDeleteModal({ 
+      isOpen: true, 
+      commentId, 
+      triggerElement 
+    });
   };
 
   // Actual delete function
@@ -257,13 +501,16 @@ const IssueDetailPage = () => {
         commentCount: Math.max((prev.commentCount || 1) - 1, 0),
       }));
       toast.success("Comment deleted");
-      setDeleteModal({ isOpen: false, commentId: null });
+      setDeleteModal({ isOpen: false, commentId: null, triggerElement: null });
     } catch (err) {
       toast.error("Failed to delete comment");
     } finally {
       setIsDeleting(false);
     }
   };
+
+  // Check if comment is valid (not empty or just whitespace)
+  const isCommentValid = newComment.trim().length > 0;
 
   if (loading) {
     return (
@@ -347,13 +594,13 @@ const IssueDetailPage = () => {
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleUpvote}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors ${
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors relative overflow-visible ${
                   issue.userHasUpvoted
                     ? "bg-primary-50 border-primary-200 text-primary-700"
                     : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                <ThumbsUp className="w-4 h-4" />
+                <ArrowBigUp className="w-4 h-4" />
                 <span>{issue.upvotes?.length || issue.upvoteCount || 0}</span>
               </button>
               <button
@@ -411,8 +658,12 @@ const IssueDetailPage = () => {
               <LoadingButton
                 loading={commentLoading}
                 type="submit"
-                disabled={!newComment.trim()}
-                className="btn btn-primary"
+                disabled={!isCommentValid || commentLoading}
+                className={`btn ${
+                  isCommentValid 
+                    ? 'btn-primary' 
+                    : 'btn-disabled bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 Add Comment
               </LoadingButton>
@@ -462,10 +713,9 @@ const IssueDetailPage = () => {
                           {formatRelativeTime(comment.createdAt)}
                         </span>
                       </div>
-                      // ...inside the comments.map...
                       <button
-                        onClick={() => handleDeleteComment(comment._id)}
-                        className="text-red-500 hover:text-red-700 transition-colors p-1 rounded"
+                        onClick={(e) => handleDeleteComment(comment._id, e)}
+                        className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50"
                         title="Delete comment"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -479,14 +729,18 @@ const IssueDetailPage = () => {
           </div>
         </div>
 
-        {/* Delete Confirmation Modal */}
+        {/* YouTube-style Upvote Animation */}
+        {upvoteAnimation.isAnimating && <UpvoteAnimation triggerElement={upvoteAnimation.triggerElement} />}
+
+        {/* Delete Confirmation Modal with macOS Animation */}
         <DeleteConfirmationModal
           isOpen={deleteModal.isOpen}
-          onClose={() => setDeleteModal({ isOpen: false, commentId: null })}
+          onClose={() => setDeleteModal({ isOpen: false, commentId: null, triggerElement: null })}
           onConfirm={confirmDeleteComment}
           isLoading={isDeleting}
           title="Delete Comment"
           message="Are you sure you want to delete this comment? This action cannot be undone."
+          triggerElement={deleteModal.triggerElement}
         />
       </div>
     </div>

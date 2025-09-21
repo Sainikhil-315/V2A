@@ -15,11 +15,25 @@ connectDB();
 // Create HTTP server
 const server = http.createServer(app);
 
-// Setup Socket.IO
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3000',
+  'http://192.168.0.187:3000',
+  'http://192.168.0.187:8081',
+  'exp://kdn9mau-anonymous-8081.exp.direct'
+];
+
 const io = socketIo(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'POST'],
     credentials: true
   },
   transports: ['polling', 'websocket'],
@@ -27,8 +41,8 @@ const io = socketIo(server, {
   pingInterval: 25000
 });
 
-// Setup Socket.IO with authentication
 setupSocket(io);
+
 
 // Initialize notification service with socket.io
 const notificationService = new NotificationService(io);

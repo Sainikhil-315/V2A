@@ -36,7 +36,8 @@ export const SocketProvider = ({ children }) => {
     // Create socket only if none exists
     if (!socketRef.current) {
       const newSocket = io(
-        import.meta.env.VITE_API_URL || "http://localhost:5000",
+        // 'http://192.168.0.187:5000' || import.meta.env.VITE_API_URL || 
+        "http://localhost:5000",
         {
           auth: { token },
           transports: ["polling", "websocket"],

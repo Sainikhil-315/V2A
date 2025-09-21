@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: 'http://localhost:5000/api' || 'http://192.168.0.187:5000/api' || 'exp://192.168.0.187:8081/api' || process.env.REACT_APP_API_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
@@ -265,6 +265,12 @@ export const leaderboardAPI = {
   getStats: () => api.get('/leaderboard/stats'),
   getAchievements: () => api.get('/leaderboard/achievements'),
   getImpact: (params) => api.get('/leaderboard/impact', { params })
+};
+
+// Simple feedback API methods
+export const feedbackAPI = {
+  submit: (data) => api.post('/feedback', data),
+  getAll: (params) => api.get('/feedback', { params })
 };
 
 export default api;
