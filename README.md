@@ -293,7 +293,7 @@ router.get('/public', optionalAuth, (req, res) => {});
 Set all production values in `.env`:
 ```env
 NODE_ENV=production
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/voice2action
+MONGODB_URI=
 JWT_SECRET=<strong-production-secret>
 # ... other production values
 ```
