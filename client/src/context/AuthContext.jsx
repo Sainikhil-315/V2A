@@ -1,5 +1,5 @@
 // src/context/AuthContext.js
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useMemo, useCallback } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
@@ -117,10 +117,10 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkAuth();
-  }, []);
+  }, []); // ✅ Empty dependency array - only run once on mount
 
-  // Login function
-  const login = async (credentials) => {
+  // ✅ Memoize functions to prevent recreation on every render
+  const login = useCallback(async (credentials) => {
     try {
       dispatch({ type: AUTH_ACTIONS.AUTH_START });
 
@@ -147,10 +147,9 @@ export const AuthProvider = ({ children }) => {
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, []);
 
-  // Register function
-  const register = async (userData) => {
+  const register = useCallback(async (userData) => {
     try {
       dispatch({ type: AUTH_ACTIONS.AUTH_START });
 
@@ -177,10 +176,9 @@ export const AuthProvider = ({ children }) => {
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, []);
 
-  // Logout function
-  const logout = async (showMessage = true) => {
+  const logout = useCallback(async (showMessage = true) => {
     try {
       // Call logout endpoint
       await api.post('/auth/logout');
@@ -198,10 +196,9 @@ export const AuthProvider = ({ children }) => {
         toast.success('Logged out successfully');
       }
     }
-  };
+  }, []);
 
-  // Update user profile
-  const updateProfile = async (profileData) => {
+  const updateProfile = useCallback(async (profileData) => {
     try {
       const response = await api.put('/auth/profile', profileData);
       const updatedUser = response.data.data.user;
@@ -219,10 +216,9 @@ export const AuthProvider = ({ children }) => {
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, []);
 
-  // Update avatar
-  const updateAvatar = async (avatarFile) => {
+  const updateAvatar = useCallback(async (avatarFile) => {
     try {
       const formData = new FormData();
       formData.append('avatar', avatarFile);
@@ -248,10 +244,9 @@ export const AuthProvider = ({ children }) => {
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, []);
 
-  // Change password
-  const changePassword = async (passwordData) => {
+  const changePassword = useCallback(async (passwordData) => {
     try {
       await api.put('/auth/change-password', passwordData);
       toast.success('Password changed successfully');
@@ -262,10 +257,9 @@ export const AuthProvider = ({ children }) => {
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, []);
 
-  // Forgot password
-  const forgotPassword = async (email) => {
+  const forgotPassword = useCallback(async (email) => {
     try {
       await api.post('/auth/forgot-password', { email });
       toast.success('Password reset link sent to your email');
@@ -276,25 +270,22 @@ export const AuthProvider = ({ children }) => {
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }, []);
 
-  // Clear error
-  const clearError = () => {
+  const clearError = useCallback(() => {
     dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-  };
+  }, []);
 
-  // Check if user has specific role
-  const hasRole = (role) => {
+  const hasRole = useCallback((role) => {
     return state.user?.role === role;
-  };
+  }, [state.user?.role]);
 
-  // Check if user is admin
-  const isAdmin = () => {
+  const isAdmin = useCallback(() => {
     return hasRole('admin');
-  };
+  }, [hasRole]);
 
-  // Context value
-  const value = {
+  // ✅ Memoize the context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     // State
     user: state.user,
     token: state.token,
@@ -315,7 +306,23 @@ export const AuthProvider = ({ children }) => {
     // Utilities
     hasRole,
     isAdmin
-  };
+  }), [
+    state.user,
+    state.token,
+    state.isAuthenticated,
+    state.loading,
+    state.error,
+    login,
+    register,
+    logout,
+    updateProfile,
+    updateAvatar,
+    changePassword,
+    forgotPassword,
+    clearError,
+    hasRole,
+    isAdmin
+  ]);
 
   return (
     <AuthContext.Provider value={value}>

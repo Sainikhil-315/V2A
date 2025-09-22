@@ -47,14 +47,14 @@ const Header = () => {
   }, [location.pathname]);
 
   // Handle quick search shortcut
-  useEffect(() => {
-    const handleQuickSearch = () => {
-      document.getElementById("quick-search")?.focus();
-    };
+  // useEffect(() => {
+  //   const handleQuickSearch = () => {
+  //     document.getElementById("quick-search")?.focus();
+  //   };
 
-    window.addEventListener("quicksearch", handleQuickSearch);
-    return () => window.removeEventListener("quicksearch", handleQuickSearch);
-  }, []);
+  //   window.addEventListener("quicksearch", handleQuickSearch);
+  //   return () => window.removeEventListener("quicksearch", handleQuickSearch);
+  // }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -121,7 +121,7 @@ const Header = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden md:flex items-center space-x-8 flex-1 justify-evenly">
             <Link
               to="/"
               className={`text-sm font-medium transition-colors ${
@@ -174,7 +174,7 @@ const Header = () => {
           {/* Right Side Actions */}
           <div className="flex items-center space-x-4">
             {/* Quick Search */}
-            {isAuthenticated && (
+            {/* {isAuthenticated && (
               <div className="hidden lg:block relative">
                 <input
                   id="quick-search"
@@ -203,13 +203,13 @@ const Header = () => {
                   />
                 </svg>
               </div>
-            )}
+            )} */}
 
             {/* Quick Report Button */}
             {isAuthenticated && (
               <button
                 onClick={handleQuickReport}
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                className="quick-report-btn inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
                 title="Quick Report (Ctrl+Shift+R)"
               >
                 <svg
@@ -231,10 +231,12 @@ const Header = () => {
 
             {/* Notifications */}
             {isAuthenticated && (
-              <div className="relative" ref={notificationsRef}>
+              <div className="relative notifications-dropdown" ref={notificationsRef}>
                 <button
                   onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
                   className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 focus:ring-2 focus:ring-primary-500 rounded-lg transition-colors"
+                  aria-label="Notifications"
+                  title="View notifications"
                 >
                   <svg
                     className="w-5 h-5"
@@ -319,10 +321,11 @@ const Header = () => {
 
             {/* User Profile or Auth Buttons */}
             {isAuthenticated ? (
-              <div className="relative" ref={profileMenuRef}>
+              <div className="relative user-profile-dropdown" ref={profileMenuRef}>
                 <button
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                   className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label="User profile menu"
                 >
                   <img
                     className="w-8 h-8 rounded-full object-cover"
@@ -467,7 +470,7 @@ const Header = () => {
                 )}
               </div>
             ) : (
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-4 auth-buttons">
                 <Link
                   to="/login"
                   className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
@@ -587,4 +590,3 @@ const Header = () => {
 };
 
 export default Header;
-// check once

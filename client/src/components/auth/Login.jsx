@@ -1,48 +1,52 @@
 // src/components/auth/Login.jsx
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { useAuth } from '../../context/AuthContext';
-import { motion } from 'framer-motion';
-import { ButtonLoader } from '../common/Loader';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { useAuth } from "../../context/AuthContext";
+import { motion } from "framer-motion";
+import { ButtonLoader } from "../common/Loader";
 
 const Login = () => {
   const { login, loading, error, clearError, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setFocus
+    setFocus,
   } = useForm();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const from = location.state?.from?.pathname || '/dashboard';
+      const from = location.state?.from?.pathname || "/dashboard";
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, navigate, location]);
 
   // Focus on email field when component mounts
   useEffect(() => {
-    setFocus('email');
+    setFocus("email");
   }, [setFocus]);
 
   // Clear errors when component unmounts
   useEffect(() => {
-    return () => clearError();
-  }, [clearError]);
+    return () => {
+      if (clearError) {
+        clearError();
+      }
+    };
+  }, []);
 
   const onSubmit = async (data) => {
     const result = await login(data);
     if (result.success) {
-      const from = location.state?.from?.pathname || '/dashboard';
+      const from = location.state?.from?.pathname || "/dashboard";
       navigate(from, { replace: true });
-      window.location.reload(); // Reload to reset state
+      // window.location.reload(); // Reload to reset state
     }
   };
 
@@ -62,9 +66,17 @@ const Login = () => {
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
             className="mx-auto h-16 w-16 bg-primary-600 rounded-full flex items-center justify-center"
           >
-            <svg className="h-8 w-8 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 12L8 10l2-2 2 2-2 2z"/>
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 3.314-2.686 6-6 6s-6-2.686-6-6a5.99 5.99 0 01.332-1.973z" clipRule="evenodd"/>
+            <svg
+              className="h-8 w-8 text-white"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path d="M10 12L8 10l2-2 2 2-2 2z" />
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 3.314-2.686 6-6 6s-6-2.686-6-6a5.99 5.99 0 01.332-1.973z"
+                clipRule="evenodd"
+              />
             </svg>
           </motion.div>
           <motion.h2
@@ -101,8 +113,16 @@ const Login = () => {
               className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg"
             >
               <div className="flex items-center space-x-2">
-                <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                <svg
+                  className="w-5 h-5 flex-shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 <span className="text-sm font-medium">{error}</span>
               </div>
@@ -112,27 +132,42 @@ const Login = () => {
           <div className="space-y-5">
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Email address
               </label>
               <div className="relative">
                 <input
-                  {...register('email', {
-                    required: 'Email is required',
+                  {...register("email", {
+                    required: "Email is required",
                     pattern: {
                       value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                      message: 'Please enter a valid email address'
-                    }
+                      message: "Please enter a valid email address",
+                    },
                   })}
                   type="email"
                   autoComplete="email"
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${
-                    errors.email ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                    errors.email
+                      ? "border-red-300 dark:border-red-600"
+                      : "border-gray-300 dark:border-gray-600"
                   }`}
                   placeholder="Enter your email"
                 />
-                <svg className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                <svg
+                  className="absolute left-3 top-3.5 h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
                 </svg>
               </div>
               {errors.email && (
@@ -148,27 +183,42 @@ const Login = () => {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Password
               </label>
               <div className="relative">
                 <input
-                  {...register('password', {
-                    required: 'Password is required',
+                  {...register("password", {
+                    required: "Password is required",
                     minLength: {
                       value: 6,
-                      message: 'Password must be at least 6 characters'
-                    }
+                      message: "Password must be at least 6 characters",
+                    },
                   })}
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   className={`w-full pl-10 pr-12 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${
-                    errors.password ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                    errors.password
+                      ? "border-red-300 dark:border-red-600"
+                      : "border-gray-300 dark:border-gray-600"
                   }`}
                   placeholder="Enter your password"
                 />
-                <svg className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                <svg
+                  className="absolute left-3 top-3.5 h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
                 </svg>
                 <button
                   type="button"
@@ -176,13 +226,38 @@ const Login = () => {
                   className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   {showPassword ? (
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"
+                      />
                     </svg>
                   ) : (
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
                     </svg>
                   )}
                 </button>
@@ -208,7 +283,10 @@ const Login = () => {
                 type="checkbox"
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+              <label
+                htmlFor="remember-me"
+                className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+              >
                 Remember me
               </label>
             </div>
@@ -235,7 +313,7 @@ const Login = () => {
                 Signing in...
               </>
             ) : (
-              'Sign in'
+              "Sign in"
             )}
           </motion.button>
 
@@ -286,12 +364,18 @@ const Login = () => {
           className="text-center text-xs text-gray-500 dark:text-gray-400"
         >
           <p>
-            By signing in, you agree to our{' '}
-            <Link to="/terms" className="text-primary-600 dark:text-primary-400 hover:underline">
+            By signing in, you agree to our{" "}
+            <Link
+              to="/terms"
+              className="text-primary-600 dark:text-primary-400 hover:underline"
+            >
               Terms of Service
-            </Link>{' '}
-            and{' '}
-            <Link to="/privacy" className="text-primary-600 dark:text-primary-400 hover:underline">
+            </Link>{" "}
+            and{" "}
+            <Link
+              to="/privacy"
+              className="text-primary-600 dark:text-primary-400 hover:underline"
+            >
               Privacy Policy
             </Link>
           </p>

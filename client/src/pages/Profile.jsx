@@ -28,6 +28,7 @@ import { useForm } from 'react-hook-form'
 import { formatNumber, formatRelativeTime } from '../utils/helpers'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import toast from 'react-hot-toast'
+import { Link } from 'react-router-dom'
 
 const Profile = () => {
   const { user, updateProfile, updateAvatar, changePassword } = useAuth()
@@ -279,9 +280,9 @@ const StatsTab = () => {
         <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">No Statistics Available</h3>
         <p className="text-gray-600 mb-6">Start reporting issues to see your contribution statistics</p>
-        <a href="/report" className="btn btn-primary">
+        <Link href="/report" className="btn btn-primary">
           Report Your First Issue
-        </a>
+        </Link>
       </div>
     )
   }
@@ -415,9 +416,9 @@ const StatsTab = () => {
               <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h4 className="text-lg font-medium text-gray-900 mb-2">No issues yet</h4>
               <p className="text-gray-600 mb-4">Start contributing to your community</p>
-              <a href="/report" className="btn btn-primary">
+              <Link href="/report" className="btn btn-primary">
                 Report First Issue
-              </a>
+              </Link>
             </div>
           )}
         </div>

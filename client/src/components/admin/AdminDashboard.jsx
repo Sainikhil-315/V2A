@@ -27,6 +27,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { Link } from "react-router-dom";
 
 const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -229,10 +230,10 @@ const AdminDashboard = () => {
                 <Download className="w-4 h-4 mr-2" />
                 Export Data
               </button>
-              <a href="/admin/verification" className="btn btn-primary flex items-center">
+              <Link href="/admin/verification" className="btn btn-primary flex items-center">
                 <Eye className="w-4 h-4 mr-2" />
                 Review Issues
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -436,12 +437,12 @@ const AdminDashboard = () => {
               </div>
 
               <div className="p-6 space-y-3">
-                <a href="/admin/verification" className="w-full btn btn-primary
+                <Link href="/admin/verification" className="w-full btn btn-primary
                 flex items-center justify-center"
                 >
                   <Eye className="w-4 h-4 mr-2" />
                   Review Issues
-                </a>
+                </Link>
                 <a
                   href="/admin/analytics"
                   className="w-full btn btn-outline flex items-center justify-center"

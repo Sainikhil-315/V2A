@@ -88,7 +88,7 @@ function App() {
             <NotificationToast />
 
             {/* Site Tour */}
-            {/* <SiteTour /> */}
+            <SiteTour />
 
             {/* Header */}
             <Header />

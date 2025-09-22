@@ -228,29 +228,29 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Accessibility enhancements
-function enhanceAccessibility() {
-  // Skip to main content link
-  const skipLink = document.createElement('a');
-  skipLink.href = '#main-content';
-  skipLink.textContent = 'Skip to main content';
-  skipLink.className = 'sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 bg-primary-600 text-white px-4 py-2 z-50';
-  document.body.insertBefore(skipLink, document.body.firstChild);
+// function enhanceAccessibility() {
+//   // Skip to main content link
+//   const skipLink = document.createElement('a');
+//   skipLink.href = '#main-content';
+//   skipLink.textContent = 'Skip to main content';
+//   skipLink.className = 'sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 bg-primary-600 text-white px-4 py-2 z-50';
+//   document.body.insertBefore(skipLink, document.body.firstChild);
   
-  // Focus management for modal dialogs
-  document.addEventListener('focusin', (e) => {
-    const modal = document.querySelector('[role="dialog"][aria-modal="true"]');
-    if (modal && !modal.contains(e.target)) {
-      const focusableElements = modal.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusableElements.length > 0) {
-        focusableElements[0].focus();
-      }
-    }
-  });
-}
+//   // Focus management for modal dialogs
+//   document.addEventListener('focusin', (e) => {
+//     const modal = document.querySelector('[role="dialog"][aria-modal="true"]');
+//     if (modal && !modal.contains(e.target)) {
+//       const focusableElements = modal.querySelectorAll(
+//         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+//       );
+//       if (focusableElements.length > 0) {
+//         focusableElements[0].focus();
+//       }
+//     }
+//   });
+// }
 
-enhanceAccessibility();
+// enhanceAccessibility();
 
 // Dark mode detection and handling
 function handleColorScheme() {

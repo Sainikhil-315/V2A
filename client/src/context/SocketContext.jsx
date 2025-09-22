@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useRef,
   useState,
+  useMemo,
 } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext";
@@ -19,6 +20,11 @@ export const SocketProvider = ({ children }) => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+
+  // Extract userId to prevent reference changes
+  const userId = useMemo(() => user?.id, [user?.id]);
+  const userName = useMemo(() => user?.name, [user?.name]);
+  const userRole = useMemo(() => user?.role, [user?.role]);
 
   // Initialize socket connection safely
   useEffect(() => {
@@ -53,9 +59,9 @@ export const SocketProvider = ({ children }) => {
         console.log("✅ Socket connected:", newSocket.id);
         setIsConnected(true);
         reconnectAttempts.current = 0;
-        // Use current user from ref to avoid dependency issues
-        if (user?.id) {
-          newSocket.emit("join_user_room", user.id);
+        // Use userId from useMemo to avoid dependency issues
+        if (userId) {
+          newSocket.emit("join_user_room", userId);
         }
       });
 
@@ -90,10 +96,10 @@ export const SocketProvider = ({ children }) => {
         setOnlineUsers([]);
       }
     };
-  }, [isAuthenticated, token, user?.id]); // ✅ Include user.id in dependencies
+  }, [isAuthenticated, token, userId]); // ✅ Use userId instead of user?.id
 
-  // Real-time event listeners
-  const setupEventListeners = (socket) => {
+  // Real-time event listeners - memoize the setup function to prevent recreation
+  const setupEventListeners = useMemo(() => (socket) => {
     socket.on("issue_status_changed", (data) => {
       toast.success(
         `Issue "${data.title}" status updated to ${data.newStatus}`
@@ -104,7 +110,7 @@ export const SocketProvider = ({ children }) => {
     });
 
     socket.on("new_issue_submitted", (data) => {
-      if (user?.role === "admin") {
+      if (userRole === "admin") {
         toast(`New issue: ${data.title}`, { icon: "🚨", duration: 6000 });
       }
       window.dispatchEvent(
@@ -113,7 +119,7 @@ export const SocketProvider = ({ children }) => {
     });
 
     socket.on("comment_added", (data) => {
-      if (data.user.name !== user?.name) {
+      if (data.user.name !== userName) {
         toast(`${data.user.name} commented on an issue`, { icon: "💬" });
       }
       window.dispatchEvent(new CustomEvent("commentAdded", { detail: data }));
@@ -149,7 +155,7 @@ export const SocketProvider = ({ children }) => {
     });
 
     socket.on("urgent_issue_alert", (data) => {
-      if (user?.role === "admin") {
+      if (userRole === "admin") {
         toast.error(`Urgent Issue: ${data.title}`, {
           duration: 10000,
           icon: "🚨",
@@ -186,7 +192,7 @@ export const SocketProvider = ({ children }) => {
           toast(data.message, toastOptions);
       }
     });
-  };
+  }, [userRole, userName]); // ✅ Memoize with stable dependencies
 
   // ✅ Utility functions (all through emit wrapper)
   const emit = (event, data) => {

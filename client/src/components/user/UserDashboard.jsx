@@ -19,6 +19,7 @@ import { issuesAPI, leaderboardAPI } from '../../utils/api'
 import { formatRelativeTime, getStatusColor, getCategoryInfo } from '../../utils/helpers'
 import Loader, { SkeletonLoader } from '../common/Loader'
 import IssueCard from './IssueCard'
+import { Link } from 'react-router-dom'
 
 const UserDashboard = () => {
   const { user } = useAuth()
@@ -166,12 +167,12 @@ const UserDashboard = () => {
               </div>
               
               
-               <a href="/report"
+               <Link href="/report"
                 className="btn btn-primary flex items-center"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Report Issue
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -204,9 +205,9 @@ const UserDashboard = () => {
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-medium text-gray-900">Your Recent Issues</h2>
-                  <a href="/issues" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+                  <Link href="/issues" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
                     View all
-                  </a>
+                  </Link>
                 </div>
               </div>
               
@@ -222,9 +223,9 @@ const UserDashboard = () => {
                     <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No issues yet</h3>
                     <p className="text-gray-600 mb-4">Start by reporting your first civic issue</p>
-                    <a href="/report" className="btn btn-primary">
+                    <Link href="/report" className="btn btn-primary">
                       Report Issue
-                    </a>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -278,28 +279,28 @@ const UserDashboard = () => {
               
               <div className="p-6 space-y-3">
                 
-                <a href="/report"
+                <Link href="/report"
                   className="w-full btn btn-primary flex items-center justify-center"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Report New Issue
-                </a>
+                </Link>
                 
                 
-                <a href="/issues"
+                <Link href="/issues"
                   className="w-full btn btn-outline flex items-center justify-center"
                 >
                   <Eye className="w-4 h-4 mr-2" />
                   Browse Issues
-                </a>
+                </Link>
                 
                 
-                <a href="/leaderboard"
+                <Link href="/leaderboard"
                   className="w-full btn btn-outline flex items-center justify-center"
                 >
                   <Trophy className="w-4 h-4 mr-2" />
                   View Leaderboard
-                </a>
+                </Link>
               </div>
             </div>
 

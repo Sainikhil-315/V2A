@@ -1,6 +1,6 @@
 // src/pages/IssueTracking.jsx
 import React, { useState, useEffect } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   Filter,
   Search,
@@ -222,9 +222,9 @@ const IssueTracking = () => {
                 <MapPin className="w-4 h-4 mr-2" />
                 Map View
               </button>
-              <a href="/report" className="btn btn-primary flex items-center">
+              <Link href="/report" className="btn btn-primary flex items-center">
                 Report New Issue
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -316,9 +316,9 @@ const IssueTracking = () => {
                 : "Be the first to report an issue in your community"}
             </p>
             {!Object.values(filters).some((f) => f) && (
-              <a href="/report" className="btn btn-primary">
+              <Link href="/report" className="btn btn-primary">
                 Report First Issue
-              </a>
+              </Link>
             )}
           </div>
         ) : (
